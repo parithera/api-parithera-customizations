@@ -75,13 +75,7 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join(
-            process.cwd(),
-            'files',
-            user.userId,
-            project_id,
-            'plot_variable_features.svg'
-        );
+        const filePath = join('/private', user.userId, project_id, 'plot_variable_features.svg');
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'utf8', (err, data) => {
                 if (err) {
