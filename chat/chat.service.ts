@@ -16,6 +16,32 @@ export type ChartData = {
     type: string;
 };
 
+export type LLMResponse = {
+    choices: {
+        finish_reason: string;
+        index: number;
+        logprobs: {
+            tokens: string[];
+            token_logprobs: number[];
+            top_logprobs: string[];
+        };
+        message: {
+            content: string;
+            role: string;
+        };
+        reference: string;
+    }[];
+    created: number;
+    id: string;
+    model: string;
+    object: string;
+    usage: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+    };
+};
+
 @Injectable()
 export class ChatService {
     api_key: string;
@@ -25,16 +51,6 @@ export class ChatService {
     }
 
     async askGPT(queryParams: AskGPT): Promise<ChartData> {
-        // const prompt = `Building a website can be done in 10 simple steps:`;
-
-        // let response = await fetch("http://llm-server:8000/completion", {
-        //     method: 'POST',
-        //     body: JSON.stringify({
-        //         prompt,
-        //         n_predict: 512,
-        //     })
-        // })
-
         if (!queryParams.projectId) {
             return {
                 answer: 'Please select a chat in the list on the left',
@@ -71,18 +87,41 @@ export class ChatService {
 
         const prompts = new ChatPrompts();
 
-        const openai = new OpenAI({
-            apiKey: this.api_key // This is the default and can be omitted
-        });
+        // If you have GPT4ALL API key, you can use the following code
+        const chatCompletion: LLMResponse = await fetch(
+            'http://host.docker.internal:4891/v1/chat/completions',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'Nous Hermes 2 Mistral DPO',
+                    messages: [
+                        { role: 'system', content: prompts.getCancerPrompt() },
+                        { role: 'user', content: queryParams.request }
+                    ],
+                    max_tokens: 10000,
+                    temperature: 0.28
+                })
+            }
+        )
+            .then((res) => res.json())
+            .catch((err) => console.error(err));
 
-        const chatCompletion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: prompts.getCancerPrompt() },
-                { role: 'user', content: queryParams.request }
-            ],
-            temperature: 0
-        });
+        // ELSE use the following code
+        // const openai = new OpenAI({
+        //     apiKey: this.api_key // This is the default and can be omitted
+        // });
+
+        // const chatCompletion = await openai.chat.completions.create({
+        //     model: 'gpt-4o-mini',
+        //     messages: [
+        //         { role: 'system', content: prompts.getCancerPrompt() },
+        //         { role: 'user', content: queryParams.request }
+        //     ],
+        //     temperature: 0
+        // });
 
         const parsedMessage = chatCompletion.choices[0].message;
 
