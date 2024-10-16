@@ -13,6 +13,8 @@ import {
 } from 'src/types/errors/types';
 import { readFile } from 'fs';
 import { join } from 'path';
+import { Result, ResultByAnalysisId } from 'src/entity/codeclarity/Result';
+import { CodeclarityDB } from 'src/data-source';
 
 @Controller('org/:org_id/projects')
 export class GraphController {
@@ -27,9 +29,9 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_elbow.svg');
+        const filePath = join('/private', user.userId, project_id, 'plot_elbow.png');
         return new Promise((resolve, reject) => {
-            return readFile(filePath, 'utf8', (err, data) => {
+            return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
                     reject(err);
                 }
@@ -51,9 +53,9 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_umap.svg');
+        const filePath = join('/private', user.userId, project_id, 'plot_umap.png');
         return new Promise((resolve, reject) => {
-            return readFile(filePath, 'utf8', (err, data) => {
+            return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
                     reject(err);
                 }
@@ -75,9 +77,9 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_variable_features.svg');
+        const filePath = join('/private', user.userId, project_id, 'plot_variable_features.png');
         return new Promise((resolve, reject) => {
-            return readFile(filePath, 'utf8', (err, data) => {
+            return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
                     reject(err);
                 }
@@ -99,9 +101,9 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_violin.svg');
+        const filePath = join('/private', user.userId, project_id, 'plot_violin.png');
         return new Promise((resolve, reject) => {
-            return readFile(filePath, 'utf8', (err, data) => {
+            return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
                     reject(err);
                 }
@@ -134,5 +136,70 @@ export class GraphController {
                 });
             });
         });
+    }
+
+    @ApiTags('Graphs')
+    @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
+    @ApiErrorDecorator({ statusCode: 404, errors: [EntityNotFound] })
+    @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
+    @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
+    @Get(':project_id/png_graph/:analysis_id')
+    async getAnalysisGraph(
+        @AuthUser() user: AuthenticatedUser,
+        @Param('project_id') project_id: string,
+        @Param('org_id') org_id: string,
+        @Param('analysis_id') analysis_id: string
+    ): Promise<TypedResponse<string>> {
+        const filePath = join('/private', user.userId, project_id, analysis_id + '.png');
+        return new Promise((resolve, reject) => {
+            return readFile(filePath, 'base64', (err, data) => {
+                if (err) {
+                    reject(EntityNotFound);
+                }
+                resolve({
+                    data: data
+                });
+            });
+        });
+    }
+
+    @ApiTags('Results')
+    @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
+    @ApiErrorDecorator({ statusCode: 404, errors: [EntityNotFound] })
+    @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
+    @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
+    @Get(':project_id/result/:analysis_id')
+    async getResultByAnalysisId(
+        @AuthUser() user: AuthenticatedUser,
+        @Param('project_id') project_id: string,
+        @Param('org_id') org_id: string,
+        @Param('analysis_id') analysis_id: string
+    ): Promise<TypedResponse<ResultByAnalysisId>> {
+        const res: ResultByAnalysisId = {
+            id: '',
+            image: ''
+        };
+        const result = await CodeclarityDB.getRepository(Result).findOne({
+            where: {
+                analysis: {
+                    id: analysis_id
+                }
+            },
+            relations: {
+                analysis: true
+            }
+        });
+        if (!result) {
+            return {
+                data: res
+            };
+        }
+
+        res.id = result.id;
+        res.image = result.analysis.id;
+
+        return {
+            data: res
+        };
     }
 }

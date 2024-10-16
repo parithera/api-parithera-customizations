@@ -45,9 +45,13 @@ export type LLMResponse = {
 @Injectable()
 export class ChatService {
     api_key: string;
+    base_url: string;
+    model: string;
 
     constructor(private readonly configService: ConfigService) {
         this.api_key = this.configService.getOrThrow<string>('OPENAI_API_KEY');
+        this.base_url = this.configService.getOrThrow<string>('OPENAI_BASEURL');
+        this.model = this.configService.getOrThrow<string>('OPENAI_MODEL');
     }
 
     async askGPT(queryParams: AskGPT): Promise<ChartData> {
@@ -87,41 +91,21 @@ export class ChatService {
 
         const prompts = new ChatPrompts();
 
-        // If you have GPT4ALL API key, you can use the following code
-        const chatCompletion: LLMResponse = await fetch(
-            'http://host.docker.internal:4891/v1/chat/completions',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'Nous Hermes 2 Mistral DPO',
-                    messages: [
-                        { role: 'system', content: prompts.getCancerPrompt() },
-                        { role: 'user', content: queryParams.request }
-                    ],
-                    max_tokens: 10000,
-                    temperature: 0.28
-                })
-            }
-        )
-            .then((res) => res.json())
-            .catch((err) => console.error(err));
+        const openai = new OpenAI({
+            baseURL: this.base_url,
+            apiKey: this.api_key
+        });
 
-        // ELSE use the following code
-        // const openai = new OpenAI({
-        //     apiKey: this.api_key // This is the default and can be omitted
-        // });
-
-        // const chatCompletion = await openai.chat.completions.create({
-        //     model: 'gpt-4o-mini',
-        //     messages: [
-        //         { role: 'system', content: prompts.getCancerPrompt() },
-        //         { role: 'user', content: queryParams.request }
-        //     ],
-        //     temperature: 0
-        // });
+        const chatCompletion = await openai.chat.completions.create({
+            // model: 'gpt-4o-mini',
+            model: this.model,
+            messages: [
+                { role: 'system', content: prompts.getLLAMA() },
+                // { role: 'user', content: '[INST]' + queryParams.request + '[/INST]' }
+                { role: 'user', content: queryParams.request }
+            ],
+            temperature: 0.7
+        });
 
         const parsedMessage = chatCompletion.choices[0].message;
 
