@@ -8,8 +8,11 @@ import { Project } from 'src/entity/codeclarity/Project';
 import * as fs from 'fs';
 import { join } from 'path';
 import * as amqp from 'amqplib';
-import { RabbitMQError } from 'src/types/errors/types';
+import { EntityNotFound, RabbitMQError } from 'src/types/errors/types';
 import { DispatcherPluginMessage } from 'src/types/rabbitMqMessages';
+import { Chat, Message } from './entity/Chat';
+import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
+import { AuthenticatedUser } from 'src/types/auth/types';
 
 export type ChartData = {
     answer: string;
@@ -89,6 +92,27 @@ export class ChatService {
             };
         }
 
+        let chat = await CodeclarityDB.getRepository(Chat).findOne({
+            where: {
+                project: {
+                    id: queryParams.projectId
+                }
+            }
+        });
+
+        if (!chat) {
+            const createChat: Chat = new Chat();
+            createChat.messages = [
+                {
+                    request: '',
+                    response: 'Hi, how can I help you today?',
+                    image: ''
+                }
+            ];
+            createChat.project = project;
+            chat = await CodeclarityDB.getRepository(Chat).save(createChat);
+        }
+
         const prompts = new ChatPrompts();
 
         const openai = new OpenAI({
@@ -96,14 +120,27 @@ export class ChatService {
             apiKey: this.api_key
         });
 
+        const messages: ChatCompletionMessageParam[] = [
+            { role: 'system', content: prompts.getLLAMA() }
+        ];
+
+        chat.messages;
+        for (const message of chat.messages.reverse()) {
+            messages.push({
+                role: 'user',
+                content: message.request
+            });
+            messages.push({
+                role: 'assistant',
+                content: message.response
+            });
+        }
+        messages.push({ role: 'user', content: queryParams.request });
+
         const chatCompletion = await openai.chat.completions.create({
             // model: 'gpt-4o-mini',
             model: this.model,
-            messages: [
-                { role: 'system', content: prompts.getLLAMA() },
-                // { role: 'user', content: '[INST]' + queryParams.request + '[/INST]' }
-                { role: 'user', content: queryParams.request }
-            ],
+            messages: messages,
             temperature: 0.7
         });
 
@@ -115,6 +152,14 @@ export class ChatService {
                 type: 'text'
             };
         }
+
+        const newMessage: Message = new Message();
+        newMessage.request = queryParams.request;
+        newMessage.response = parsedMessage.content;
+        newMessage.image = '';
+
+        chat.messages.splice(0, 0, newMessage);
+        await CodeclarityDB.getRepository(Chat).save(chat);
 
         // If the message includes a Script, save it to a file
         if (parsedMessage.content.includes('```R')) {
@@ -164,5 +209,34 @@ export class ChatService {
             answer: parsedMessage.content,
             type: 'text'
         };
+    }
+
+    async getHistory(project_id: string, user: AuthenticatedUser): Promise<Chat> {
+        const chat = await CodeclarityDB.getRepository(Chat).findOne({
+            where: {
+                project: {
+                    id: project_id
+                }
+            }
+        });
+        if (!chat) {
+            throw EntityNotFound;
+        }
+
+        for (let i = 0; i < chat.messages.length; i++) {
+            const message = chat.messages[i];
+            if (message.image == '') continue;
+            const res: string = await new Promise((resolve, reject) => {
+                const filePath = join('/private', user.userId, project_id, message.image + '.png');
+                return fs.readFile(filePath, 'base64', (err, data) => {
+                    if (err) {
+                        reject(err);
+                    }
+                    resolve(data);
+                });
+            });
+            chat.messages[i].image = res;
+        }
+        return chat;
     }
 }
