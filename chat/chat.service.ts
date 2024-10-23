@@ -200,7 +200,7 @@ export class ChatService {
             }
 
             return {
-                answer: parsedMessage.content,
+                answer: parsedMessage.content + '\n Please wait while the script is running',
                 type: 'chat'
             };
         }
