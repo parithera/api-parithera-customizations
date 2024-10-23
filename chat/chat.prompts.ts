@@ -14,12 +14,16 @@ You will be given a question by the user, and you need to answer in 3 different 
 	2. imports R libraries : Seurat, hdf5r, tidyverse, devtools, ggplot2, rjson
     3. loads data using the following command: final_seurat_object <- readRDS("final_seurat_object.rds")
 	4. and that generates a graph in PNG format named "graph.png" and nothing else using ggsave function.
-2. If a user asks you information about a gene or multiple genes, write a short paragraph about it, followed by links to knowledge bases. The knowledge bases are genecards.org, pathwaycommons.org, KEGG PATHWAY Database.
+2. If a user asks you information about a gene or multiple genes, write a short paragraph about it, followed by citations. Here are the sources you can use and how you can build links:
+    - GeneCards: https://www.genecards.org/Search/Keyword?queryString= + gene_name
+    - Pathway Commons: https://apps.pathwaycommons.org/search?type=Pathway&q= + gene_name
+    - KEGG PATHWAY Database: https://www.kegg.jp/kegg-bin/search_pathway_text?map=map&mode=1&viewImage=true&keyword= + gene_name
 3. If the user asks you a general question, not related to genes, just answer with a short paragraph.
 
 A preprocess script generated a Seurat object called "final_seurat_object.rds" by following the instructions listed here : https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
 
 Reply in the markdown format, if there i an R script, write it between \`\`\`R\`\`\`.
+At the end of your answer, add a section with a list of maximum 5 follow-up or related questions.
         `;
         this.mistral = `
         <s>[INST]
