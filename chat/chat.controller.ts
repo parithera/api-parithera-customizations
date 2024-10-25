@@ -13,7 +13,7 @@ import {
 } from 'src/types/errors/types';
 import { ApiErrorDecorator } from 'src/decorators/ApiException';
 import { AskGPT } from 'src/enterprise_modules/chat/types';
-import { Chat } from './entity/Chat';
+import { Chat } from '../entity/codeclarity/Chat';
 
 @Controller('/gpt')
 export class ChatController {

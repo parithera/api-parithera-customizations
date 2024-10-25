@@ -3,16 +3,17 @@ import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { ChatPrompts } from './chat.prompts';
 import { AskGPT } from 'src/enterprise_modules/chat/types';
-import { CodeclarityDB } from 'src/data-source';
 import { Project } from 'src/entity/codeclarity/Project';
 import * as fs from 'fs';
 import { join } from 'path';
 import * as amqp from 'amqplib';
 import { EntityNotFound, RabbitMQError } from 'src/types/errors/types';
 import { DispatcherPluginMessage } from 'src/types/rabbitMqMessages';
-import { Chat, Message } from './entity/Chat';
+import { Chat, Message } from '../entity/codeclarity/Chat';
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 import { AuthenticatedUser } from 'src/types/auth/types';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 export type ChartData = {
     answer: string;
@@ -51,7 +52,13 @@ export class ChatService {
     base_url: string;
     model: string;
 
-    constructor(private readonly configService: ConfigService) {
+    constructor(
+        private readonly configService: ConfigService,
+        @InjectRepository(Project, 'codeclarity')
+        private projectRepository: Repository<Project>,
+        @InjectRepository(Chat, 'codeclarity')
+        private chatRepository: Repository<Chat>
+    ) {
         this.api_key = this.configService.getOrThrow<string>('OPENAI_API_KEY');
         this.base_url = this.configService.getOrThrow<string>('OPENAI_BASEURL');
         this.model = this.configService.getOrThrow<string>('OPENAI_MODEL');
@@ -66,7 +73,7 @@ export class ChatService {
         }
 
         // retrieve files from project
-        const project = await CodeclarityDB.getRepository(Project).findOne({
+        const project = await this.projectRepository.findOne({
             where: {
                 id: queryParams.projectId
             },
@@ -92,7 +99,7 @@ export class ChatService {
             };
         }
 
-        let chat = await CodeclarityDB.getRepository(Chat).findOne({
+        let chat = await this.chatRepository.findOne({
             where: {
                 project: {
                     id: queryParams.projectId
@@ -110,7 +117,7 @@ export class ChatService {
                 }
             ];
             createChat.project = project;
-            chat = await CodeclarityDB.getRepository(Chat).save(createChat);
+            chat = await this.chatRepository.save(createChat);
         }
 
         const prompts = new ChatPrompts();
@@ -159,7 +166,7 @@ export class ChatService {
         newMessage.image = '';
 
         chat.messages.splice(0, 0, newMessage);
-        await CodeclarityDB.getRepository(Chat).save(chat);
+        await this.chatRepository.save(chat);
 
         // If the message includes a Script, save it to a file
         if (parsedMessage.content.includes('```R')) {
@@ -212,7 +219,7 @@ export class ChatService {
     }
 
     async getHistory(project_id: string, user: AuthenticatedUser): Promise<Chat> {
-        const chat = await CodeclarityDB.getRepository(Chat).findOne({
+        const chat = await this.chatRepository.findOne({
             where: {
                 project: {
                     id: project_id

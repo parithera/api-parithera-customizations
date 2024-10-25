@@ -14,10 +14,16 @@ import {
 import { readFile } from 'fs';
 import { join } from 'path';
 import { Result, ResultByAnalysisId } from 'src/entity/codeclarity/Result';
-import { CodeclarityDB } from 'src/data-source';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Controller('org/:org_id/projects')
 export class GraphController {
+    constructor(
+        @InjectRepository(Result, 'codeclarity')
+        private resultRepository: Repository<Result>
+    ) {}
+
     @ApiTags('Graphs')
     @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
     @ApiErrorDecorator({ statusCode: 404, errors: [EntityNotFound] })
@@ -179,7 +185,7 @@ export class GraphController {
             id: '',
             image: ''
         };
-        const result = await CodeclarityDB.getRepository(Result).findOne({
+        const result = await this.resultRepository.findOne({
             where: {
                 analysis: {
                     id: analysis_id
