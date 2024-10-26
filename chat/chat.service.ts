@@ -9,7 +9,7 @@ import { join } from 'path';
 import * as amqp from 'amqplib';
 import { EntityNotFound, RabbitMQError } from 'src/types/errors/types';
 import { DispatcherPluginMessage } from 'src/types/rabbitMqMessages';
-import { Chat, Message } from '../entity/codeclarity/Chat';
+import { Chat, Message } from './chat.entity';
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 import { AuthenticatedUser } from 'src/types/auth/types';
 import { InjectRepository } from '@nestjs/typeorm';
