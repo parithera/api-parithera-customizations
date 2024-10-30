@@ -46,7 +46,7 @@ export class ChatController {
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<Chat>> {
         return {
-            data: await this.chatService.getHistory(project_id, user)
+            data: await this.chatService.getHistory(project_id, org_id, user)
         };
     }
 }

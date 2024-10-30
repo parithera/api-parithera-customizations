@@ -9,4 +9,7 @@ export class AskGPT {
 
     @ApiProperty()
     projectId: string;
+
+    @ApiProperty()
+    organizationId: string;
 }

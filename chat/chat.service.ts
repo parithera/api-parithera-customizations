@@ -14,6 +14,8 @@ import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 import { AuthenticatedUser } from 'src/types/auth/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
+import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
 
 export type ChartData = {
     answer: string;
@@ -53,6 +55,7 @@ export class ChatService {
     model: string;
 
     constructor(
+        private readonly organizationMemberService: OrganizationsMemberService,
         private readonly configService: ConfigService,
         @InjectRepository(Project, 'codeclarity')
         private projectRepository: Repository<Project>,
@@ -65,6 +68,11 @@ export class ChatService {
     }
 
     async askGPT(queryParams: AskGPT): Promise<ChartData> {
+        await this.organizationMemberService.hasRequiredRole(
+            queryParams.organizationId,
+            queryParams.userId,
+            MemberRole.USER
+        );
         if (!queryParams.projectId) {
             return {
                 answer: 'Please select a chat in the list on the left',
@@ -75,10 +83,14 @@ export class ChatService {
         // retrieve files from project
         const project = await this.projectRepository.findOne({
             where: {
-                id: queryParams.projectId
+                id: queryParams.projectId,
+                organizations: {
+                    id: queryParams.organizationId
+                }
             },
             relations: {
-                files: true
+                files: true,
+                added_by: true
             }
         });
         if (!project) {
@@ -174,7 +186,7 @@ export class ChatService {
             script = script.split('```R')[1].split('```')[0];
 
             // Save the script to a file
-            const folderPath = join('/private', queryParams.userId, queryParams.projectId);
+            const folderPath = join('/private', project.added_by.id, queryParams.projectId);
             const scriptPath = join(folderPath, 'script.R');
             fs.writeFileSync(scriptPath, script);
 
@@ -218,7 +230,32 @@ export class ChatService {
         };
     }
 
-    async getHistory(project_id: string, user: AuthenticatedUser): Promise<Chat> {
+    async getHistory(
+        project_id: string,
+        organization_id: string,
+        user: AuthenticatedUser
+    ): Promise<Chat> {
+        await this.organizationMemberService.hasRequiredRole(
+            organization_id,
+            user.userId,
+            MemberRole.USER
+        );
+
+        const project = await this.projectRepository.findOne({
+            where: {
+                id: project_id,
+                organizations: {
+                    id: organization_id
+                }
+            },
+            relations: {
+                added_by: true
+            }
+        });
+        if (!project) {
+            throw new Error('Project not found');
+        }
+
         const chat = await this.chatRepository.findOne({
             where: {
                 project: {
@@ -234,7 +271,12 @@ export class ChatService {
             const message = chat.messages[i];
             if (message.image == '') continue;
             const res: string = await new Promise((resolve, reject) => {
-                const filePath = join('/private', user.userId, project_id, message.image + '.png');
+                const filePath = join(
+                    '/private',
+                    project.added_by.id,
+                    project_id,
+                    message.image + '.png'
+                );
                 return fs.readFile(filePath, 'base64', (err, data) => {
                     if (err) {
                         reject(err);

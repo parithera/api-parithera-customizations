@@ -5,10 +5,12 @@ import { Chat } from './chat.entity';
 import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { Project } from 'src/entity/codeclarity/Project';
+import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
+import { OrganizationMemberships } from 'src/entity/codeclarity/OrganizationMemberships';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Chat, Project], 'codeclarity')],
-    providers: [ChatService],
+    imports: [TypeOrmModule.forFeature([Chat, Project, OrganizationMemberships], 'codeclarity')],
+    providers: [ChatService, OrganizationsMemberService],
     controllers: [ChatController]
 })
 export class ChatModule {}

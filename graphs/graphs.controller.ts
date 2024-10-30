@@ -16,12 +16,18 @@ import { join } from 'path';
 import { Result, ResultByAnalysisId } from 'src/entity/codeclarity/Result';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
+import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
+import { Project } from 'src/entity/codeclarity/Project';
 
 @Controller('org/:org_id/projects')
 export class GraphController {
     constructor(
+        private readonly organizationMemberService: OrganizationsMemberService,
         @InjectRepository(Result, 'codeclarity')
-        private resultRepository: Repository<Result>
+        private resultRepository: Repository<Result>,
+        @InjectRepository(Project, 'codeclarity')
+        private projectRepository: Repository<Project>
     ) {}
 
     @ApiTags('Graphs')
@@ -35,7 +41,24 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_elbow.png');
+        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+
+        const project = await this.projectRepository.findOne({
+            where: {
+                id: project_id,
+                organizations: {
+                    id: org_id
+                }
+            },
+            relations: {
+                added_by: true
+            }
+        });
+        if (!project) {
+            throw new Error('Project not found');
+        }
+
+        const filePath = join('/private', project.added_by.id, project_id, 'plot_elbow.png');
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
@@ -59,7 +82,24 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_umap.png');
+        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+
+        const project = await this.projectRepository.findOne({
+            where: {
+                id: project_id,
+                organizations: {
+                    id: org_id
+                }
+            },
+            relations: {
+                added_by: true
+            }
+        });
+        if (!project) {
+            throw new Error('Project not found');
+        }
+
+        const filePath = join('/private', project.added_by.id, project_id, 'plot_umap.png');
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
@@ -83,7 +123,29 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_variable_features.png');
+        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+
+        const project = await this.projectRepository.findOne({
+            where: {
+                id: project_id,
+                organizations: {
+                    id: org_id
+                }
+            },
+            relations: {
+                added_by: true
+            }
+        });
+        if (!project) {
+            throw new Error('Project not found');
+        }
+
+        const filePath = join(
+            '/private',
+            project.added_by.id,
+            project_id,
+            'plot_variable_features.png'
+        );
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
@@ -107,7 +169,24 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'plot_violin.png');
+        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+
+        const project = await this.projectRepository.findOne({
+            where: {
+                id: project_id,
+                organizations: {
+                    id: org_id
+                }
+            },
+            relations: {
+                added_by: true
+            }
+        });
+        if (!project) {
+            throw new Error('Project not found');
+        }
+
+        const filePath = join('/private', project.added_by.id, project_id, 'plot_violin.png');
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
@@ -131,7 +210,24 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, 'graph.svg');
+        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+
+        const project = await this.projectRepository.findOne({
+            where: {
+                id: project_id,
+                organizations: {
+                    id: org_id
+                }
+            },
+            relations: {
+                added_by: true
+            }
+        });
+        if (!project) {
+            throw new Error('Project not found');
+        }
+
+        const filePath = join('/private', project.added_by.id, project_id, 'graph.svg');
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'utf8', (err, data) => {
                 if (err) {
@@ -156,7 +252,24 @@ export class GraphController {
         @Param('org_id') org_id: string,
         @Param('analysis_id') analysis_id: string
     ): Promise<TypedResponse<string>> {
-        const filePath = join('/private', user.userId, project_id, analysis_id + '.png');
+        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+
+        const project = await this.projectRepository.findOne({
+            where: {
+                id: project_id,
+                organizations: {
+                    id: org_id
+                }
+            },
+            relations: {
+                added_by: true
+            }
+        });
+        if (!project) {
+            throw new Error('Project not found');
+        }
+
+        const filePath = join('/private', project.added_by.id, project_id, analysis_id + '.png');
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
@@ -181,6 +294,7 @@ export class GraphController {
         @Param('org_id') org_id: string,
         @Param('analysis_id') analysis_id: string
     ): Promise<TypedResponse<ResultByAnalysisId>> {
+        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
         const res: ResultByAnalysisId = {
             id: '',
             image: ''
