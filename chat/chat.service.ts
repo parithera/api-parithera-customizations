@@ -295,7 +295,8 @@ export class ChatService {
                 );
                 return fs.readFile(filePath, 'base64', (err, data) => {
                     if (err) {
-                        reject(err);
+                        // reject(err);
+                        resolve('');
                     }
                     resolve(data);
                 });
