@@ -128,7 +128,8 @@ export class ChatService {
                 {
                     request: '',
                     response: 'Hi, how can I help you today?',
-                    image: ''
+                    image: '',
+                    timestamp: new Date()
                 }
             ];
             createChat.project = project;
@@ -179,6 +180,7 @@ export class ChatService {
         newMessage.request = queryParams.request;
         newMessage.response = parsedMessage.content;
         newMessage.image = '';
+        newMessage.timestamp = new Date();
 
         chat.messages.splice(0, 0, newMessage);
         await this.chatRepository.save(chat);

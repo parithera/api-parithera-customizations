@@ -34,4 +34,8 @@ export class Message {
     @ApiProperty()
     @Expose()
     image: string;
+
+    @ApiProperty()
+    @Expose()
+    timestamp: Date;
 }
