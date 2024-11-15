@@ -129,6 +129,9 @@ export class ChatService {
                     request: '',
                     response: 'Hi, how can I help you today?',
                     image: '',
+                    text: '',
+                    data: '',
+                    result: '',
                     timestamp: new Date()
                 }
             ];
@@ -180,6 +183,9 @@ export class ChatService {
         newMessage.request = queryParams.request;
         newMessage.response = parsedMessage.content;
         newMessage.image = '';
+        newMessage.text = '';
+        newMessage.data = '';
+        newMessage.result = '';
         newMessage.timestamp = new Date();
 
         chat.messages.splice(0, 0, newMessage);
@@ -274,12 +280,10 @@ export class ChatService {
 
         for (let i = 0; i < chat.messages.length; i++) {
             const message = chat.messages[i];
-            if (message.image == '') continue;
+            if (message.result == '') continue;
             const result = await this.resultRepository.findOne({
                 where: {
-                    analysis: {
-                        id: message.image
-                    }
+                    id: message.result
                 }
             });
             if (!result) continue;

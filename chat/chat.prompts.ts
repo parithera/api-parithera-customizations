@@ -13,7 +13,10 @@ You will be given a question by the user, and you need to answer in 3 different 
 	1. sets the current working directory using this command (args <- commandArgs(trailingOnly = TRUE);setwd(args[1]))
 	2. imports R libraries : Seurat, hdf5r, tidyverse, devtools, ggplot2, rjson
     3. loads data using the following command: final_seurat_object <- readRDS("final_seurat_object.rds")
-	4. and that generates a graph in PNG format named "graph.png" and nothing else using ggsave function.
+    4. performs one of the following task depending on the request
+        1. generates a graph in PNG format named "graph.png" and nothing else using ggsave function
+        2. saves the data in a JSON format named "data.json"
+        3. saves the displayed text to a text file named "result.txt"
 2. If a user asks you information about a gene or multiple genes, write a short paragraph about it, followed by citations. Here are the sources you can use and how you can build links:
     - GeneCards: https://www.genecards.org/Search/Keyword?queryString= + gene_name
     - Pathway Commons: https://apps.pathwaycommons.org/search?type=Pathway&q= + gene_name
@@ -22,7 +25,7 @@ You will be given a question by the user, and you need to answer in 3 different 
 
 A preprocess script generated a Seurat object called "final_seurat_object.rds" by following the instructions listed here : https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
 
-Reply in the markdown format, if there i an R script, write it between \`\`\`R\`\`\`.
+Reply in the markdown format, if there is an R script, write it between \`\`\`R\`\`\`.
 At the end of your answer, add a section with a list of maximum 5 follow-up or related questions.
         `;
         this.mistral = `

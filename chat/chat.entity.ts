@@ -37,5 +37,17 @@ export class Message {
 
     @ApiProperty()
     @Expose()
+    text: string;
+
+    @ApiProperty()
+    @Expose()
+    data: string;
+
+    @ApiProperty()
+    @Expose()
+    result: string;
+
+    @ApiProperty()
+    @Expose()
     timestamp: Date;
 }
