@@ -283,7 +283,7 @@ export class ChatService {
             if (message.result == '') continue;
             const result = await this.resultRepository.findOne({
                 where: {
-                    id: message.result
+                    analysis: { id: message.result }
                 }
             });
             if (!result) continue;
