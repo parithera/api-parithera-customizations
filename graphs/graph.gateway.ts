@@ -11,7 +11,7 @@ import {
     WsException,
     WsResponse
 } from '@nestjs/websockets';
-import { readFile } from 'fs';
+import { existsSync, readFile } from 'fs';
 import { join } from 'path';
 import { from, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -90,6 +90,10 @@ export class GraphsGateway {
             data: '',
             type: data.type
         };
+
+        while (!existsSync(filePath)) {
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
 
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'base64', (err, data) => {
