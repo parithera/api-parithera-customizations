@@ -84,7 +84,8 @@ export class GraphsGateway {
             '/private',
             project.added_by.id,
             data.projectId,
-            `plot_${data.type}.png`
+            'scanpy',
+            `${data.type}.png`
         );
         const response: Response = {
             data: '',

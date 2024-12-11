@@ -233,6 +233,61 @@ export class ChatService {
                 answer: parsedMessage.content + '\n Please wait while the script is running',
                 type: 'chat'
             };
+        }else if (parsedMessage.content.includes('```python')) {
+            let script = parsedMessage.content;
+            script = script.split('```python')[1].split('```')[0];
+
+            // Save the script to a file
+            const folderPath = join('/private', project.added_by.id, queryParams.projectId,"python");
+            
+            if (!fs.existsSync(folderPath)) {
+                fs.mkdirSync(folderPath);
+            }
+
+            // Remove all content of folderPath
+            const filesToDelete = fs.readdirSync(folderPath);
+            for (const file of filesToDelete) {
+                const path = join(folderPath, file);
+                if (!fs.lstatSync(path).isDirectory()) {
+                    fs.unlinkSync(path);
+                }
+            }
+
+            const scriptPath = join(folderPath, 'script.py');
+            fs.writeFileSync(scriptPath, script);
+
+            // Send message to aqmp to start the anaylsis
+            const queue = 'dispatcher_python';
+            const amqpHost = `${this.configService.getOrThrow<string>(
+                'AMQP_PROTOCOL'
+            )}://${this.configService.getOrThrow<string>('AMQP_USER')}:${
+                process.env.AMQP_PASSWORD
+            }@${this.configService.getOrThrow<string>(
+                'AMQP_HOST'
+            )}:${this.configService.getOrThrow<string>('AMQP_PORT')}`;
+
+            try {
+                const conn = await amqp.connect(amqpHost);
+                const ch1 = await conn.createChannel();
+                await ch1.assertQueue(queue);
+
+                const message: DispatcherPluginMessage = {
+                    Data: {
+                        type: 'chat'
+                    },
+                    AnalysisId: '',
+                    ProjectId: queryParams.projectId
+                };
+                ch1.sendToQueue(queue, Buffer.from(JSON.stringify(message)));
+                await ch1.close();
+            } catch (err) {
+                throw new RabbitMQError(err);
+            }
+
+            return {
+                answer: parsedMessage.content + '\n Please wait while the script is running',
+                type: 'chat'
+            };
         }
 
         return {
