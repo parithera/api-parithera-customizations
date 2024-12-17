@@ -352,6 +352,7 @@ export class ChatService {
                     '/private',
                     project.added_by.id,
                     project_id,
+                    'data',
                     message.image + '.png'
                 );
                 return fs.readFile(filePath, 'base64', (err, data) => {
