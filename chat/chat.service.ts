@@ -330,7 +330,7 @@ export class ChatService {
             }
         });
         if (!chat) {
-            throw EntityNotFound;
+            throw new EntityNotFound('No history');
         }
 
         for (let i = 0; i < chat.messages.length; i++) {
