@@ -11,6 +11,7 @@ import { Expose } from 'class-transformer';
 import { User } from 'src/entity/codeclarity/User';
 import { File } from 'src/entity/codeclarity/File';
 import { Project } from 'src/entity/codeclarity/Project';
+import { Organization } from 'src/entity/codeclarity/Organization';
 
 @Entity()
 export class Sample {
@@ -54,7 +55,13 @@ export class Sample {
     @Expose()
     @ManyToMany(() => Project)
     @JoinTable()
-    project: Relation<Project>;
+    projects: Relation<Project[]>;
+
+    @ApiProperty()
+    @Expose()
+    @ManyToMany(() => Organization)
+    @JoinTable()
+    organizations: Relation<Organization[]>;
 
     @ApiProperty()
     @Expose()
@@ -66,5 +73,5 @@ export class Sample {
     @JoinTable()
     @ApiProperty()
     @Expose()
-    added_by: Relation<User>;
+    users: Relation<User[]>;
 }

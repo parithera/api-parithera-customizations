@@ -28,7 +28,7 @@ export class GraphController {
         private resultRepository: Repository<Result>,
         @InjectRepository(Project, 'codeclarity')
         private projectRepository: Repository<Project>
-    ) {}
+    ) { }
 
     @ApiTags('Graphs')
     @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
@@ -100,7 +100,7 @@ export class GraphController {
             throw new Error('Project not found');
         }
 
-        const filePath = join('/private', project.added_by.id, project_id,"data", analysis_id + '.png');
+        const filePath = join('/private', project.added_by.id, project_id, "data", analysis_id + '.png');
         return new Promise((resolve, reject) => {
             return readFile(filePath, 'base64', (err, data) => {
                 if (err) {
