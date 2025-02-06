@@ -13,9 +13,10 @@ import { File } from 'src/entity/codeclarity/File';
 import { ConfigService } from '@nestjs/config';
 import { Analysis } from 'src/entity/codeclarity/Analysis';
 import { Analyzer } from 'src/entity/codeclarity/Analyzer';
+import { Project } from 'src/entity/codeclarity/Project';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Sample, OrganizationMemberships, User, Organization, Analysis, Analyzer, Log, File], 'codeclarity')],
+    imports: [TypeOrmModule.forFeature([Sample, OrganizationMemberships, User, Organization, Analysis, Analyzer, Project, Log, File], 'codeclarity')],
     providers: [OrganizationsMemberService, OrganizationLoggerService, ConfigService, SampleService],
     controllers: [SampleController]
 })

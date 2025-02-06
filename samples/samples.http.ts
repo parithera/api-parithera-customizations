@@ -10,3 +10,13 @@ export class SamplesImportBody {
     @IsOptional()
     description: string;
 }
+
+export class AssociateProjectToSamplesPatchBody {
+    @ApiProperty()
+    @IsOptional()
+    samples: Array<string>;
+
+    @ApiProperty()
+    @IsOptional()
+    projectId: string;
+}

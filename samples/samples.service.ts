@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
 import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
 import { Sample } from './samples.entity';
-import { SamplesImportBody } from './samples.http';
+import { AssociateProjectToSamplesPatchBody, SamplesImportBody } from './samples.http';
 import { Organization } from 'src/entity/codeclarity/Organization';
 import { User } from 'src/entity/codeclarity/User';
 import { join } from 'path';
@@ -21,10 +21,11 @@ import { escapeString } from 'src/utils/cleaner';
 import * as fs from 'fs';
 import * as amqp from 'amqplib';
 import { AnalysisCreateBody } from 'src/types/entities/frontend/Analysis';
-import { AnalyzerDoesNotExist, AnaylzerMissingConfigAttribute, EntityNotFound, NotAuthorized, RabbitMQError } from 'src/types/errors/types';
+import { AnalyzerDoesNotExist, AnaylzerMissingConfigAttribute, EntityNotFound, NotAuthorized, ProjectDoesNotExist, RabbitMQError } from 'src/types/errors/types';
 import { Analysis, AnalysisStage, AnalysisStatus } from 'src/entity/codeclarity/Analysis';
 import { AnalysisStartMessageCreate } from 'src/types/rabbitMqMessages';
 import { Analyzer } from 'src/entity/codeclarity/Analyzer';
+import { Project } from 'src/entity/codeclarity/Project';
 
 @Injectable()
 export class SampleService {
@@ -45,6 +46,8 @@ export class SampleService {
         private analysisRepository: Repository<Analysis>,
         @InjectRepository(Analyzer, 'codeclarity')
         private analyzerRepository: Repository<Analyzer>,
+        @InjectRepository(Project, 'codeclarity')
+        private projectRepository: Repository<Project>,
     ) {
     }
 
@@ -132,6 +135,49 @@ export class SampleService {
             where: {
                 organizations: {
                     id: orgId
+                }
+            }
+        })
+
+        return {
+            data: samples,
+            page: 0,
+            entry_count: samples.length,
+            entries_per_page: 0,
+            total_entries: samples.length,
+            total_pages: 0,
+            matching_count: samples.length, // once you apply filters this needs to change
+            filter_count: {}
+        };
+    }
+
+    /**
+     * Get many projects of the org
+     * @throws {NotAuthorized}
+     *
+     * @param orgId The id of the org
+     * @param paginationUserSuppliedConf Paginiation configuration
+     * @param user The authenticatéd user
+     * @param searchKey A search key to filter the records by
+     * @param sortBy A sort field to sort the records by
+     * @param sortDirection A sort direction
+     * @returns
+     */
+    async getManyByProject(
+        orgId: string,
+        project_id: string,
+        user: AuthenticatedUser,
+    ): Promise<TypedPaginatedData<Sample>> {
+        // Every member of an org can retrieve all project
+        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+
+        const samples = await this.sampleRepository.find({
+            where: {
+                organizations: {
+                    id: orgId
+                },
+                projects: {
+                    id: project_id
                 }
             }
         })
@@ -448,5 +494,57 @@ export class SampleService {
         }
 
         return created_analysis.id;
+    }
+
+    /**
+     * Update a user's password
+     * @throws {EntityNotFound} If the user does not exist
+     * @throws {NotAuthorized} If the user is not authorized to perform the action on the indicated userId
+     * @throws {PasswordsDoNotMatch} If the provided password and passwordConfirmation do not match
+     * @throws {CannotPerformActionOnSocialAccount} If the user tries to update a password on a social account
+     *
+     * @param userId The id of the user to update
+     * @param passwordPatchBody The password update data
+     * @param authenticatedUser The authenticated user
+     */
+    async associateProjectToSamples(
+        orgId: string,
+        patchBody: AssociateProjectToSamplesPatchBody,
+        authenticatedUser: AuthenticatedUser
+    ): Promise<void> {
+        // (1) Check if user has access to org
+        await this.organizationMemberService.hasRequiredRole(orgId, authenticatedUser.userId, MemberRole.USER);
+
+        // (2) Check if the project belongs to the org
+        const project = await this.projectRepository.findOne({
+            relations: {
+                organizations: true,
+            },
+            where: { id: patchBody.projectId, organizations: { id: orgId } }
+        });
+        if (!project) {
+            throw new ProjectDoesNotExist()
+        }
+
+        const samples_to_update = []
+
+        for (const sample_id of patchBody.samples) {
+            // (3) Check if the sample belongs to the org
+            const sample = await this.sampleRepository.findOne({
+                relations: {
+                    organizations: true,
+                    projects: true
+                },
+                where: { id: sample_id, organizations: { id: orgId } }
+            });
+            if (!sample) {
+                throw new EntityNotFound()
+            }
+
+            sample?.projects.push(project)
+            samples_to_update.push(sample)
+        }
+
+        await this.sampleRepository.save(samples_to_update)
     }
 }
