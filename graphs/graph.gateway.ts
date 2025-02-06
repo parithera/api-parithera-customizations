@@ -26,7 +26,7 @@ import { AuthenticatedUser } from 'src/types/auth/types';
 import { Repository } from 'typeorm';
 
 interface Request {
-    projectId: string;
+    sampleId: string;
     orgId: string;
     type: string;
 }
@@ -65,25 +65,11 @@ export class GraphsGateway {
             MemberRole.USER
         );
 
-        const project = await this.projectRepository.findOne({
-            where: {
-                id: data.projectId,
-                organizations: {
-                    id: data.orgId
-                }
-            },
-            relations: {
-                added_by: true
-            }
-        });
-        if (!project) {
-            throw new Error('Project not found');
-        }
-
         const filePath = join(
             '/private',
-            project.added_by.id,
-            data.projectId,
+            data.orgId,
+            'samples',
+            data.sampleId,
             'scanpy',
             `${data.type}.png`
         );

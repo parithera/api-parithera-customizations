@@ -17,6 +17,7 @@ import { Repository } from 'typeorm';
 import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
 import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
 import { Result } from 'src/entity/codeclarity/Result';
+import { Sample } from '../samples/samples.entity';
 
 export type ChartData = {
     answer: string;
@@ -63,7 +64,9 @@ export class ChatService {
         @InjectRepository(Chat, 'codeclarity')
         private chatRepository: Repository<Chat>,
         @InjectRepository(Result, 'codeclarity')
-        private resultRepository: Repository<Result>
+        private resultRepository: Repository<Result>,
+        @InjectRepository(Sample, 'codeclarity')
+        private sampleRepository: Repository<Sample>
     ) {
         this.api_key = this.configService.getOrThrow<string>('OPENAI_API_KEY');
         this.base_url = this.configService.getOrThrow<string>('OPENAI_BASEURL');
@@ -99,17 +102,20 @@ export class ChatService {
         if (!project) {
             throw new Error('Project not found');
         }
-        if (project.files.length === 0) {
+
+        const samples = await this.sampleRepository.find({
+            where: {
+                organizations: {
+                    id: queryParams.organizationId
+                },
+                projects: {
+                    id: project.id
+                }
+            }
+        })
+        if (samples.length === 0) {
             return {
                 answer: 'Please import a file in the project',
-                type: 'text'
-            };
-        }
-
-        const data_file = project.files.find((file) => file.type === 'DATA');
-        if (!data_file) {
-            return {
-                answer: 'Please provide a file in the project',
                 type: 'text'
             };
         }
@@ -197,7 +203,7 @@ export class ChatService {
             script = script.split('```R')[1].split('```')[0];
 
             // Save the script to a file
-            const folderPath = join('/private', project.added_by.id, queryParams.projectId);
+            const folderPath = join('/private', queryParams.organizationId, "projects", queryParams.projectId);
             const scriptPath = join(folderPath, 'script.R');
             fs.writeFileSync(scriptPath, script);
 
@@ -238,7 +244,7 @@ export class ChatService {
             script = script.split('```python')[1].split('```')[0];
 
             // Save the script to a file
-            const folderPath = join('/private', project.added_by.id, queryParams.projectId,"python");
+            const folderPath = join('/private', queryParams.organizationId, "projects", queryParams.projectId, "python");
             
             if (!fs.existsSync(folderPath)) {
                 fs.mkdirSync(folderPath);
@@ -350,7 +356,8 @@ export class ChatService {
             const res: string = await new Promise((resolve, reject) => {
                 const filePath = join(
                     '/private',
-                    project.added_by.id,
+                    organization_id,
+                    'projects',
                     project_id,
                     'data',
                     message.image + '.png'

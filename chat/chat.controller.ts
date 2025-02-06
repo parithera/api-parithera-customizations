@@ -39,7 +39,7 @@ export class ChatController {
     @ApiErrorDecorator({ statusCode: 404, errors: [EntityNotFound] })
     @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
     @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
-    @Get(':project_id/history')
+    @Get(':project_id/history/:org_id')
     async getSVGElbow(
         @AuthUser() user: AuthenticatedUser,
         @Param('project_id') project_id: string,
