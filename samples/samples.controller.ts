@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiErrorDecorator } from 'src/decorators/ApiException';
 import { APIDocCreatedResponseDecorator } from 'src/decorators/CrudResponse';
@@ -159,6 +159,22 @@ export class SampleController {
     ): Promise<NoDataResponse> {        
         // await this.usersService.updatePassword(user_id, patch, user);
         await this.sampleService.associateProjectToSamples(org_id, patch, user);
+        return {};
+    }
+    
+    @ApiTags('Samples')
+    @APIDocNoDataResponseDecorator()
+    @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
+    @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
+    @ApiErrorDecorator({ statusCode: 404, errors: [EntityNotFound] })
+    @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
+    @Delete(':sample_id')
+    async delete(
+        @AuthUser() user: AuthenticatedUser,
+        @Param('sample_id') sample_id: string,
+        @Param('org_id') org_id: string
+    ): Promise<NoDataResponse> {
+        await this.sampleService.delete(org_id, sample_id, user);
         return {};
     }
 }

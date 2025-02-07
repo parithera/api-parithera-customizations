@@ -6,13 +6,14 @@ import { AuthenticatedUser } from 'src/types/auth/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
-import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
+import { MemberRole, OrganizationMemberships } from 'src/entity/codeclarity/OrganizationMemberships';
 import { Sample } from './samples.entity';
 import { AssociateProjectToSamplesPatchBody, SamplesImportBody } from './samples.http';
 import { Organization } from 'src/entity/codeclarity/Organization';
 import { User } from 'src/entity/codeclarity/User';
 import { join } from 'path';
-import { mkdir } from 'fs/promises';
+import { mkdir, rm } from 'fs/promises';
+import { existsSync } from 'fs';
 import { OrganizationLoggerService } from 'src/codeclarity_modules/organizations/organizationLogger.service';
 import { ActionType } from 'src/entity/codeclarity/Log';
 import { TypedPaginatedData } from 'src/types/paginated/types';
@@ -48,6 +49,8 @@ export class SampleService {
         private analyzerRepository: Repository<Analyzer>,
         @InjectRepository(Project, 'codeclarity')
         private projectRepository: Repository<Project>,
+        @InjectRepository(OrganizationMemberships, 'codeclarity')
+        private membershipRepository: Repository<OrganizationMemberships>
     ) {
     }
 
@@ -546,5 +549,100 @@ export class SampleService {
         }
 
         await this.sampleRepository.save(samples_to_update)
+    }
+
+    /**
+     * Delete a sample of an org
+     * @throws {NotAuthorized}
+     * @throws {EntityNotFound}
+     *
+     * @param orgId The id of the org
+     * @param id The id of the sample
+     * @param user The authenticated user
+     */
+    async delete(orgId: string, id: string, user: AuthenticatedUser): Promise<void> {
+        // (1) Check that member is at least a user
+        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+
+        // (2) Check if project belongs to org
+        const isSampleOfOrg = await this.sampleRepository.exists({
+            relations: ['organizations'],
+            where: {
+                id: id,
+                organizations: {
+                    id: orgId
+                }
+            }
+        });
+
+        if (!isSampleOfOrg) {
+            throw new NotAuthorized();
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            relations: {
+                organization: true
+            },
+            where: {
+                organization: {
+                    id: orgId
+                },
+                user: {
+                    id: user.userId
+                }
+            },
+            select: {
+                role: true,
+                organizationMembershipId: true
+            }
+        });
+
+        if (!membership) {
+            throw new EntityNotFound();
+        }
+
+        const sample = await this.sampleRepository.findOne({
+            relations: {
+                files: true
+            },
+            where: {
+                id: id,
+                users: {
+                    id: user.userId
+                }
+            }
+        })
+
+        if (!sample) {
+            throw new NotAuthorized();
+        }
+
+        const memberRole = membership.role;
+
+        // Every moderator, admin or owner can remove a project.
+        // a normal user can also delete it, iff he is the one that added the project
+        if (memberRole == MemberRole.USER) {
+            throw new NotAuthorized();
+        }
+
+        // Remove project folder
+        const filePath = join('/private', orgId, "samples", id);
+        if (existsSync(filePath)) {
+            await rm(filePath, { recursive: true, force: true });
+        }
+
+        if (sample.files.length > 0) {
+            const file_ids = sample.files.map(file => file.id);
+            await this.fileRepository.delete(file_ids)
+        }
+
+        await this.sampleRepository.delete(id);
+
+        await this.organizationLoggerService.addAuditLog(
+            ActionType.ProjectDelete,
+            `The User removed project ${sample.name} from the organization.`,
+            orgId,
+            user.userId
+        );
     }
 }
