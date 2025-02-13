@@ -57,6 +57,11 @@ export class Message {
     @Expose()
     error: string;
 
+    
+    @ApiProperty()
+    @Expose()
+    status: string;
+
     @ApiProperty()
     @Expose()
     timestamp: Date;

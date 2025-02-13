@@ -1,5 +1,6 @@
 import { UseGuards } from '@nestjs/common';
 import {
+    ConnectedSocket,
     MessageBody,
     SubscribeMessage,
     WebSocketGateway,
@@ -18,6 +19,7 @@ import { Request, Response, ResponseData, ResponseType } from './types';
 import { RAGToolService } from './tools/rag.service';
 import { ScanpyToolService } from './tools/scanpy.service';
 import { BaseToolService } from './tools/base.service';
+import { Socket } from 'dgram';
 
 @WebSocketGateway({
     cors: {
@@ -40,7 +42,8 @@ export class ChatGateway {
     @SubscribeMessage('chat')
     async graph(
         @MessageBody() data: Request,
-        @AuthUser() user: AuthenticatedUser
+        @AuthUser() user: AuthenticatedUser,
+        @ConnectedSocket() client: Socket,
     ): Promise<Response> {
         await this.organizationMemberService.hasRequiredRole(
             data.organizationId,
@@ -66,24 +69,29 @@ export class ChatGateway {
             text: '',
             JSON: {},
             image: '',
-            agent: '',
+            agent: answer,
+            status: 'agent_chosen',
             error: '',
         }
 
         let response_type = ResponseType.INFO
+        client.emit('chat:status', {
+            data: response_data,
+            type: response_type
+        })
 
         switch (answer) {
             case 'rag':
                 const rag_messages = this.baseToolService.forgeLLMRequest(prompts.getRAG(), data.request, chat, false)
                 const rag_answer = await this.baseToolService.askLLM(rag_messages)
-                response_data = this.ragToolService.parseRAGAnswer(rag_answer, response_data)
+                response_data = this.ragToolService.parseRAGAnswer(rag_answer, response_data, client)
                 response_type = ResponseType.SUCCESS
                 break;
             case 'scanpy':
                 const scanpy_messages = this.baseToolService.forgeLLMRequest(prompts.getScanpy(), data.request, chat, false)
                 const scanpy_answer = await this.baseToolService.askLLM(scanpy_messages)
-                response_data = await this.scanpyToolService.parseScanpyAnswer(scanpy_answer, response_data, data)
-                response_data = await this.scanpyToolService.executeScript(data.organizationId, data.projectId, user, response_data)
+                response_data = await this.scanpyToolService.parseScanpyAnswer(scanpy_answer, response_data, data, client)
+                response_data = await this.scanpyToolService.getScriptOutput(data.organizationId, data.projectId, user, response_data, client)
                 response_type = ResponseType.SUCCESS
                 break;
             default:
@@ -95,6 +103,7 @@ export class ChatGateway {
         // Update chat history in DB
         await this.chatService.updateChatHistory(chat, response_data, data.request)
 
+        response_data.status = 'done'
         const response: Response = {
             data: response_data,
             type: response_type

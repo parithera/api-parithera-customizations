@@ -138,6 +138,7 @@ export class ChatService {
                     image: '',
                     agent: '',
                     error: '',
+                    status: '',
                     timestamp: new Date()
                 }
             ];

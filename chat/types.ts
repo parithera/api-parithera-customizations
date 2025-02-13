@@ -33,6 +33,7 @@ export interface ResponseData {
     JSON: object;
     image: string;
     agent: string;
+    status: string;
     error: string;
 }
 
