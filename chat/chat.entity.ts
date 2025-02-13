@@ -29,23 +29,33 @@ export class Message {
 
     @ApiProperty()
     @Expose()
-    response: string;
+    code: string;
 
     @ApiProperty()
     @Expose()
-    image: string;
-
+    @Column('jsonb')
+    followup: string[]
+    
     @ApiProperty()
     @Expose()
     text: string;
-
+    
     @ApiProperty()
     @Expose()
-    data: string;
-
+    @Column('jsonb')
+    JSON: object;
+    
     @ApiProperty()
     @Expose()
-    result: string;
+    image: string;
+    
+    @ApiProperty()
+    @Expose()
+    agent: string;
+    
+    @ApiProperty()
+    @Expose()
+    error: string;
 
     @ApiProperty()
     @Expose()

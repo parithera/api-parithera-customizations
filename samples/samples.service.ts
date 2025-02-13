@@ -92,9 +92,9 @@ export class SampleService {
         sample.added_on = new Date()
         sample.name = projectData.name
         sample.description = projectData.description
-        sample.tags = []
+        sample.tags = projectData.tags
         sample.status = ""
-        sample.condition = projectData.description
+        sample.condition = ""
         sample.projects = []
         sample.files = []
         sample.users = [user_adding]
@@ -152,6 +152,50 @@ export class SampleService {
             matching_count: samples.length, // once you apply filters this needs to change
             filter_count: {}
         };
+    }
+
+    /**
+     * Get many projects of the org
+     * @throws {NotAuthorized}
+     *
+     * @param orgId The id of the org
+     * @param paginationUserSuppliedConf Paginiation configuration
+     * @param user The authenticatéd user
+     * @param searchKey A search key to filter the records by
+     * @param sortBy A sort field to sort the records by
+     * @param sortDirection A sort direction
+     * @returns
+     */
+    async getQC(
+        orgId: string,
+        sampleId: string,
+        user: AuthenticatedUser,
+    ): Promise<string> {
+        // Every member of an org can retrieve all project
+        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+
+        const sample = await this.sampleRepository.findOne({
+            where: {
+                id: sampleId,
+                organizations: {
+                    id: orgId
+                }
+            }
+        })
+        if (!sample) {
+            throw new EntityNotFound()
+        }
+
+        const filePath = join('/private', orgId, "samples", sampleId, "multiqc", "multiqc_report.html");
+
+        if (!existsSync(filePath)) {
+            throw new EntityNotFound('The MultiQC report file does not exist.');
+        }
+
+        const pako = require('pako');
+        const fileContent = fs.readFileSync(filePath);
+        const compressedFileContent = pako.gzip(fileContent);
+        return Buffer.from(compressedFileContent).toString('base64');
     }
 
     /**

@@ -9,12 +9,19 @@ import { OrganizationsMemberService } from 'src/codeclarity_modules/organization
 import { OrganizationMemberships } from 'src/entity/codeclarity/OrganizationMemberships';
 import { Result } from 'src/entity/codeclarity/Result';
 import { Sample } from '../samples/samples.entity';
+import { ChatGateway } from './chat.gateway';
+import { ToolsModule } from './tools/tools.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([Chat, Project, OrganizationMemberships, Result, Sample], 'codeclarity')
-    ],
-    providers: [ChatService, OrganizationsMemberService],
-    controllers: [ChatController]
+	imports: [
+		ToolsModule,
+		TypeOrmModule.forFeature([Chat, Project, OrganizationMemberships, Result, Sample], 'codeclarity')
+	],
+	providers: [
+		ChatService,
+		OrganizationsMemberService,
+		ChatGateway,
+	],
+	controllers: [ChatController]
 })
-export class ChatModule {}
+export class ChatModule { }

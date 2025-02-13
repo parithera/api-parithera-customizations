@@ -18,6 +18,7 @@ import { Project } from 'src/entity/codeclarity/Project';
 @Module({
     imports: [TypeOrmModule.forFeature([Sample, OrganizationMemberships, User, Organization, Analysis, Analyzer, Project, Log, File], 'codeclarity')],
     providers: [OrganizationsMemberService, OrganizationLoggerService, ConfigService, SampleService],
+    exports: [SampleService],
     controllers: [SampleController]
 })
 export class SampleModule {}

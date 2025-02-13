@@ -3,7 +3,7 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiErrorDecorator } from 'src/decorators/ApiException';
 import { APIDocCreatedResponseDecorator } from 'src/decorators/CrudResponse';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { CreatedResponse, NoDataResponse, TypedPaginatedResponse } from 'src/types/apiResponses';
+import { CreatedResponse, NoDataResponse, TypedPaginatedResponse, TypedResponse } from 'src/types/apiResponses';
 import { AlreadyExists, AnalyzerDoesNotExist, AnaylzerMissingConfigAttribute, EntityNotFound, InternalError, NotAuthenticated, NotAuthorized, ProjectDoesNotExist } from 'src/types/errors/types';
 import { AssociateProjectToSamplesPatchBody, SamplesImportBody } from './samples.http';
 import { AuthenticatedUser } from 'src/types/auth/types';
@@ -59,6 +59,26 @@ export class SampleController {
             org_id,
             user
         );
+    }
+
+    @ApiTags('Samples')
+    @APIDocTypedPaginatedResponseDecorator(Sample)
+    @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
+    @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
+    @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
+    @Get(':sample_id/qc')
+    async getMultiQC(
+        @AuthUser() user: AuthenticatedUser,
+        @Param('org_id') org_id: string,
+        @Param('sample_id') sample_id: string,
+    ): Promise<TypedResponse<string>> {
+        return {
+            data: await this.sampleService.getQC(
+                org_id,
+                sample_id,
+                user
+            )
+        }
     }
 
     @ApiTags('Samples')
@@ -156,12 +176,12 @@ export class SampleController {
         @AuthUser() user: AuthenticatedUser,
         @Body() patch: AssociateProjectToSamplesPatchBody,
         @Param('org_id') org_id: string
-    ): Promise<NoDataResponse> {        
+    ): Promise<NoDataResponse> {
         // await this.usersService.updatePassword(user_id, patch, user);
         await this.sampleService.associateProjectToSamples(org_id, patch, user);
         return {};
     }
-    
+
     @ApiTags('Samples')
     @APIDocNoDataResponseDecorator()
     @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })

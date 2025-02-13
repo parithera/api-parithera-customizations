@@ -9,6 +9,10 @@ export class SamplesImportBody {
     @ApiProperty()
     @IsOptional()
     description: string;
+
+    @ApiProperty()
+    @IsOptional()
+    tags: string[];
 }
 
 export class AssociateProjectToSamplesPatchBody {
