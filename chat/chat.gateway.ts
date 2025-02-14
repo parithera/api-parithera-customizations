@@ -80,6 +80,7 @@ export class ChatGateway {
             type: response_type
         })
 
+        let analysis_id = ''
         switch (answer) {
             case 'rag':
                 const rag_messages = this.baseToolService.forgeLLMRequest(prompts.getRAG(), data.request, chat, false)
@@ -91,7 +92,9 @@ export class ChatGateway {
                 const scanpy_messages = this.baseToolService.forgeLLMRequest(prompts.getScanpy(), data.request, chat, false)
                 const scanpy_answer = await this.baseToolService.askLLM(scanpy_messages)
                 response_data = await this.scanpyToolService.parseScanpyAnswer(scanpy_answer, response_data, data, client)
-                response_data = await this.scanpyToolService.getScriptOutput(data.organizationId, data.projectId, user, response_data, client)
+                const script_response = await this.scanpyToolService.getScriptOutput(data.organizationId, data.projectId, user, response_data, client)
+                response_data = script_response.response
+                analysis_id = script_response.analysisId
                 response_type = ResponseType.SUCCESS
                 break;
             default:
@@ -101,9 +104,9 @@ export class ChatGateway {
         }
 
         // Update chat history in DB
-        await this.chatService.updateChatHistory(chat, response_data, data.request)
-
         response_data.status = 'done'
+        await this.chatService.updateChatHistory(chat, response_data, data.request, analysis_id)
+
         const response: Response = {
             data: response_data,
             type: response_type

@@ -29,17 +29,8 @@ You are a bioinformatician. Your task is to write python scripts to answer quest
             output_path = sys.argv[1]
             sc.settings.figdir = output_path
 
-            organization_folder = output_path.split("projects")[0]
-            
-            with open(os.path.join(output_path, "groups.json")) as f:
-                samples = json.load(f)
-
-                adatas = {}
-
-                for sample in samples:
-                    sample_adata = ad.io.read_h5ad(os.path.join(organization_folder, "samples", sample["files"][0], 'scanpy', 'out.h5'))
-                    sample_adata.var_names_make_unique()
-                    adatas[sample["name"]] = sample_adata
+            sc.settings.set_figure_params(dpi=50, facecolor="white")
+            adata = ad.read_h5ad(output_path.replace("python", "out.h5ad"))
     <code>
 2. Then, it performs one of the following task depending on the request
     1. generates a graph in PNG format named "graph.png" and nothing else

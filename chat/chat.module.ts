@@ -17,6 +17,7 @@ import { ToolsModule } from './tools/tools.module';
 		ToolsModule,
 		TypeOrmModule.forFeature([Chat, Project, OrganizationMemberships, Result, Sample], 'codeclarity')
 	],
+	exports:[ChatService],
 	providers: [
 		ChatService,
 		OrganizationsMemberService,

@@ -14,10 +14,34 @@ import { ConfigService } from '@nestjs/config';
 import { Analysis } from 'src/entity/codeclarity/Analysis';
 import { Analyzer } from 'src/entity/codeclarity/Analyzer';
 import { Project } from 'src/entity/codeclarity/Project';
+import { LinkSamplesGateway } from './samples.gateway';
+import { AnalyzersModule } from 'src/codeclarity_modules/analyzers/analyzers.module';
+import { AnalysesModule } from 'src/codeclarity_modules/analyses/analyses.module';
+import { ResultsModule } from 'src/codeclarity_modules/results/results.module';
+import { Result } from 'src/entity/codeclarity/Result';
+import { ChatService } from '../chat/chat.service';
+import { Chat } from '../chat/chat.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Sample, OrganizationMemberships, User, Organization, Analysis, Analyzer, Project, Log, File], 'codeclarity')],
-    providers: [OrganizationsMemberService, OrganizationLoggerService, ConfigService, SampleService],
+    imports: [
+        AnalyzersModule,
+        AnalysesModule,
+        ResultsModule,
+        TypeOrmModule.forFeature([
+            Sample, 
+            OrganizationMemberships,
+            User,
+            Organization,
+            Analysis,
+            Analyzer,
+            Project,
+            Log,
+            File,
+            Result,
+            Chat
+        ], 'codeclarity')
+    ],
+    providers: [OrganizationsMemberService, OrganizationLoggerService, ConfigService, SampleService, LinkSamplesGateway, ChatService],
     exports: [SampleService],
     controllers: [SampleController]
 })
