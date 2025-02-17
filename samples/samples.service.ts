@@ -27,6 +27,8 @@ import { Analysis, AnalysisStage, AnalysisStatus } from 'src/entity/codeclarity/
 import { AnalysisStartMessageCreate } from 'src/types/rabbitMqMessages';
 import { Analyzer } from 'src/entity/codeclarity/Analyzer';
 import { Project } from 'src/entity/codeclarity/Project';
+import { ChatService } from '../chat/chat.service';
+import { Result } from 'src/entity/codeclarity/Result';
 
 @Injectable()
 export class SampleService {
@@ -35,6 +37,7 @@ export class SampleService {
         private readonly organizationMemberService: OrganizationsMemberService,
         private readonly organizationLoggerService: OrganizationLoggerService,
         private readonly configService: ConfigService,
+        private readonly chatService: ChatService,
         @InjectRepository(Sample, 'codeclarity')
         private sampleRepository: Repository<Sample>,
         @InjectRepository(Organization, 'codeclarity')
@@ -49,6 +52,8 @@ export class SampleService {
         private analyzerRepository: Repository<Analyzer>,
         @InjectRepository(Project, 'codeclarity')
         private projectRepository: Repository<Project>,
+        @InjectRepository(Result, 'codeclarity')
+        private resultRepository: Repository<Result>,
         @InjectRepository(OrganizationMemberships, 'codeclarity')
         private membershipRepository: Repository<OrganizationMemberships>
     ) {
@@ -685,6 +690,114 @@ export class SampleService {
         await this.organizationLoggerService.addAuditLog(
             ActionType.ProjectDelete,
             `The User removed project ${sample.name} from the organization.`,
+            orgId,
+            user.userId
+        );
+    }
+
+    /**
+     * Delete a sample of an org
+     * @throws {NotAuthorized}
+     * @throws {EntityNotFound}
+     *
+     * @param orgId The id of the org
+     * @param id The id of the project
+     * @param user The authenticated user
+     */
+    async deleteProject(orgId: string, id: string, user: AuthenticatedUser): Promise<void> {
+        // (1) Check that member is at least a user
+        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+
+        // (2) Check if project belongs to org
+        const isProjectOfOrg = await this.projectRepository.exists({
+            relations: ['organizations'],
+            where: {
+                id: id,
+                organizations: {
+                    id: orgId
+                }
+            }
+        });
+
+        if (!isProjectOfOrg) {
+            throw new NotAuthorized();
+        }
+
+        const membership = await this.membershipRepository.findOne({
+            relations: {
+                organization: true
+            },
+            where: {
+                organization: {
+                    id: orgId
+                },
+                user: {
+                    id: user.userId
+                }
+            },
+            select: {
+                role: true,
+                organizationMembershipId: true
+            }
+        });
+
+        if (!membership) {
+            throw new EntityNotFound();
+        }
+
+        const project = await this.projectRepository.findOne({
+            relations: {
+                analyses: {
+                    results: true
+                },
+                organizations: true
+            },
+            where: {
+                id: id
+            }
+        })
+
+        if (!project) {
+            throw new NotAuthorized();
+        }
+
+        // Every moderator, admin or owner can remove a project.
+        // a normal user can also delete it, iff he is the one that added the project
+        if (membership.role == MemberRole.USER) {
+            throw new NotAuthorized();
+        }
+
+        const organization = await this.organizationRepository.findOne({relations: {projects: true},where : {id: orgId}})
+        if (!organization) {
+            throw new EntityNotFound("Organization not found");
+        }
+
+        // Find project in organization.projects and remove it
+        const updatedProjects = organization.projects.filter(p => p.id !== id);
+        organization.projects = updatedProjects;
+
+        await this.organizationRepository.save(organization);
+
+        for (const analysis of project.analyses) {
+            await this.resultRepository.remove(analysis.results)
+        }
+        await this.analysisRepository.remove(project.analyses)
+        const chat = await this.chatService.getChatByProjectId(project.id)
+        if (chat) {
+            await this.chatService.removeChat(chat)
+        }
+
+        await this.projectRepository.delete(id);
+
+        // Remove project folder
+        const filePath = join('/private', organization.id, "projects", project.id);
+        if (existsSync(filePath)) {
+            await rm(filePath, {recursive: true, force: true});
+        }
+
+        await this.organizationLoggerService.addAuditLog(
+            ActionType.ProjectDelete,
+            `The User removed project ${project.name} from the organization.`,
             orgId,
             user.userId
         );

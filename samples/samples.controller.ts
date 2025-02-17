@@ -197,4 +197,20 @@ export class SampleController {
         await this.sampleService.delete(org_id, sample_id, user);
         return {};
     }
+
+    @ApiTags('Samples')
+    @APIDocNoDataResponseDecorator()
+    @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
+    @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
+    @ApiErrorDecorator({ statusCode: 404, errors: [EntityNotFound] })
+    @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
+    @Delete('/project/:project_id')
+    async deleteProject(
+        @AuthUser() user: AuthenticatedUser,
+        @Param('project_id') project_id: string,
+        @Param('org_id') org_id: string
+    ): Promise<NoDataResponse> {
+        await this.sampleService.deleteProject(org_id, project_id, user);
+        return {};
+    }
 }

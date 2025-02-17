@@ -154,17 +154,17 @@ export class ChatService {
         return chat
     }
 
-    async getChatByProjectId(projectId: string): Promise<Chat>{
+    async getChatByProjectId(projectId: string): Promise<Chat | null>{
         const chat = await this.chatRepository.findOneBy({project:{id: projectId}})
-        if (!chat) {
-            throw new Error('Unable to get chat by project Id')
-        }
-
         return chat
     }
 
     async updateChat(chat: Chat) {
         await this.chatRepository.save(chat)
+    }
+
+    async removeChat(chat: Chat) {
+        await this.chatRepository.remove(chat)
     }
 
     async updateChatHistory(chat: Chat, response: ResponseData, request: string, analysis_id: string) {

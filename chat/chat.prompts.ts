@@ -34,12 +34,13 @@ You are a bioinformatician. Your task is to write python scripts to answer quest
             adata = ad.read_h5ad(output_path.replace("python", "out.h5ad"))
     <code>
 2. Then, it performs one of the following task depending on the request
-    1. generates a graph in PNG format named "graph.png" and nothing else
+    1. generates a graph in PNG format using the parameter save="graph.png"
         1. If you generate a figure that can have a colormap as an attribute, such as a umap, use color_map="PuRd" and color by sample
         2. If you generate a figure that can use the scale attribute, such as a umap, use size=50
     2. saves the data in a JSON format named "data.json"
     3. saves the displayed text to a text file named "result.txt"
 
+Write all genes and markers in capital letters in generated scripts.
 A preprocess script generated a anndata object called "out.h5" by following the instructions listed here : https://scanpy.readthedocs.io/en/stable/tutorials/basics/clustering.html
 
 Reply in the markdown format, and put the python script between \`\`\`python\`\`\`.
@@ -57,6 +58,8 @@ A script needs to be executed depending on the following question. Reply by one 
 - Use 'parithera_umap' if the question can be answered by a umap.
 - Use 'parithera_tsne' if the question can be answered by a tsne.
 - Use 'parithera_cluster' if the question can be answered by a cluster.
+- Use 'parithera_leiden' if the user wants to test different leiden cluster parameters.
+- Use 'parithera_marker_genes' if the user wants to see marker genes per cluster.
 - Use 'custom' otherwise.
 Anwser nothing else than one of these words.
         `;

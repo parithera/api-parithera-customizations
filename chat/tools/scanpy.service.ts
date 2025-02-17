@@ -1,11 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { Group, Request, ResponseData, ResponseType } from "../types";
-import { DispatcherPluginMessage } from "src/types/rabbitMqMessages";
 import { join } from "path";
 import { ConfigService } from "@nestjs/config";
-import { EntityNotFound, RabbitMQError } from "src/types/errors/types";
+import { EntityNotFound } from "src/types/errors/types";
 import * as fs from 'fs';
-import * as amqp from 'amqplib';
 import { AnalyzersService } from "src/codeclarity_modules/analyzers/analyzers.service";
 import { AuthenticatedUser } from "src/types/auth/types";
 import { SampleService } from "src/enterprise_modules/samples/samples.service";
@@ -19,6 +17,7 @@ import { Repository } from "typeorm";
 import { BaseToolService } from "./base.service";
 import { ChatPrompts } from "../chat.prompts";
 import { Chat } from "../chat.entity";
+import { choseScript } from "./scanpy.scripts";
 
 export interface ScriptResponse {
     response: ResponseData,
@@ -28,7 +27,6 @@ export interface ScriptResponse {
 @Injectable()
 export class ScanpyToolService {
     constructor(
-        private readonly configService: ConfigService,
         private readonly analyzerService: AnalyzersService,
         private readonly analysisService: AnalysesService,
         private readonly sampleService: SampleService,
@@ -53,25 +51,20 @@ export class ScanpyToolService {
             scanpy_answer = await this.baseToolService.askLLM(scanpy_messages)
             response_data = await this.writeCustomScript(scanpy_answer, response_data, data, client)
         } else {
-            response_data.status = 'code_ready'
+            response_data = choseScript(
+                scanpy_answer,
+                response_data
+            )
+           
             client.emit('chat:status', {
                 data: response_data,
                 type: ResponseType.INFO
             })
-            if (scanpy_answer.includes('parithera_umap')) {
-                script = 'parithera_umap'
-            } else if (scanpy_answer.includes('parithera_tsne')) { 
-                script = 'parithera_tsne'
-            }else if (scanpy_answer.includes('parithera_cluster')) { 
-                script = 'parithera_cluster'
-            } else {
-                throw new Error('Error during LLM script descision')
-            }
         }
 
-       
+
         const script_response = await this.getScriptOutput(data.organizationId, data.projectId, script, user, response_data, client)
-        
+
         return script_response
     }
 
@@ -131,7 +124,7 @@ export class ScanpyToolService {
         const samples = await this.sampleService.getManyByProject(organizationId, projectId, user)
 
         const groups = []
-        for (const sample of samples.data){
+        for (const sample of samples.data) {
             const group: Group = {
                 name: sample.name,
                 files: [sample.id]
@@ -157,21 +150,21 @@ export class ScanpyToolService {
         }
 
         const analysisId = await this.analysisService.create(organizationId, projectId, data, user)
-        
+
         const filePath = join('/private', organizationId, 'projects', projectId, "data", analysisId + '.png');
         let checkCount = 0;
         const maxChecks = 90; // 1min 30sec
 
         let result = await this.resultRepository.findOne({
             where: {
-                analysis: {id: analysisId}
+                analysis: { id: analysisId }
             }
         })
 
         while (!result && checkCount < maxChecks) {
             result = await this.resultRepository.findOne({
                 where: {
-                    analysis: {id: analysisId},
+                    analysis: { id: analysisId },
                     plugin: 'python'
                 }
             })
@@ -181,7 +174,7 @@ export class ScanpyToolService {
 
         if (!result) {
             response_data.error = 'Script failed to execute'
-            return {response: response_data, analysisId: analysisId}
+            return { response: response_data, analysisId: analysisId }
         }
 
         // Warn client that the script has been executed
@@ -201,6 +194,6 @@ export class ScanpyToolService {
         });
 
         response_data.image = image
-        return {response: response_data, analysisId: analysisId}
+        return { response: response_data, analysisId: analysisId }
     }
 }
