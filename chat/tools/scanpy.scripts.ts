@@ -2,8 +2,17 @@ import { ResponseData } from "../types";
 import { join } from "path";
 import * as fs from 'fs';
 
-export function choseScript(scanpy_answer: string, response_data: ResponseData): ResponseData {
-    let script = '';
+export interface ScanpyData {
+    script: string,
+    response_data: ResponseData
+}
+
+export function choseScript(scanpy_answer: string, response_data: ResponseData): ScanpyData {
+    const response : ScanpyData = {
+        script: '',
+        response_data: response_data
+    }
+
     const follow_upsMap: { [key: string]: string[] } = {
         'parithera_umap': [
             'How can I visualize gene expression data on the UMAP?',
@@ -43,24 +52,24 @@ export function choseScript(scanpy_answer: string, response_data: ResponseData):
     };
 
     if (scanpy_answer.includes('parithera_umap')) {
-        script = 'parithera_umap';
+        response.script = 'parithera_umap';
     } else if (scanpy_answer.includes('parithera_tsne')) {
-        script = 'parithera_tsne';
+        response.script = 'parithera_tsne';
     } else if (scanpy_answer.includes('parithera_cluster')) {
-        script = 'parithera_cluster';
+        response.script = 'parithera_cluster';
     } else if (scanpy_answer.includes('parithera_leiden')) {
-        script = 'parithera_leiden';
+        response.script = 'parithera_leiden';
     } else if (scanpy_answer.includes('parithera_marker_genes')) {
-        script = 'parithera_marker_genes';
+        response.script = 'parithera_marker_genes';
     } else {
         throw new Error('Error during LLM script decision');
     }
 
-    response_data.followup.push(...follow_upsMap[script]);
-    const scriptPath = join('/scripts', `${script}.py`);
+    response.response_data.followup.push(...follow_upsMap[response.script]);
+    const scriptPath = join('/scripts', `${response.script}.py`);
     const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
 
-    response_data.code = scriptContent;
-    response_data.status = 'code_ready';
-    return response_data;
+    response.response_data.code = scriptContent;
+    response.response_data.status = 'code_ready';
+    return response;
 }

@@ -51,10 +51,12 @@ export class ScanpyToolService {
             scanpy_answer = await this.baseToolService.askLLM(scanpy_messages)
             response_data = await this.writeCustomScript(scanpy_answer, response_data, data, client)
         } else {
-            response_data = choseScript(
+            const scanpy_data = choseScript(
                 scanpy_answer,
                 response_data
             )
+            response_data = scanpy_data.response_data
+            script = scanpy_data.script
            
             client.emit('chat:status', {
                 data: response_data,
