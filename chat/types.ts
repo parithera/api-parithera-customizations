@@ -30,7 +30,7 @@ export interface ResponseData {
     code: string;
     followup: Array<string>;
     text: string;
-    JSON: object;
+    json: object;
     image: string;
     agent: string;
     status: string;

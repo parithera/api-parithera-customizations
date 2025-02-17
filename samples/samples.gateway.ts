@@ -122,7 +122,7 @@ export class LinkSamplesGateway {
         )
 
          let checkCount = 0;
-        const maxChecks = 60; // 2 minutes (60 seconds * 2)
+        const maxChecks = 120; // 2 minutes (60 seconds * 2)
 
         let result = await this.resultRepository.findOne({
             where: {
@@ -148,6 +148,10 @@ export class LinkSamplesGateway {
                 type: ResponseType.ERROR
             }
         }
+
+        const chat_to_modify = await this.chatService.getChatByProjectId(project.id)
+        chat.messages[0].text = 'Hi, how can I help you today?'
+        await this.chatService.updateChat(chat)
 
         // Warn client that the script has been executed
         response_data.status = 'script_executed'

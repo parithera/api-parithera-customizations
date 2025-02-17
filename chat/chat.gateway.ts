@@ -67,7 +67,7 @@ export class ChatGateway {
             code: '',
             followup: [],
             text: '',
-            JSON: {},
+            json: {},
             image: '',
             agent: answer,
             status: 'agent_chosen',
@@ -89,10 +89,7 @@ export class ChatGateway {
                 response_type = ResponseType.SUCCESS
                 break;
             case 'scanpy':
-                const scanpy_messages = this.baseToolService.forgeLLMRequest(prompts.getScanpy(), data.request, chat, false)
-                const scanpy_answer = await this.baseToolService.askLLM(scanpy_messages)
-                response_data = await this.scanpyToolService.parseScanpyAnswer(scanpy_answer, response_data, data, client)
-                const script_response = await this.scanpyToolService.getScriptOutput(data.organizationId, data.projectId, user, response_data, client)
+                const script_response = await this.scanpyToolService.start(data, response_data, chat, user, client)
                 response_data = script_response.response
                 analysis_id = script_response.analysisId
                 response_type = ResponseType.SUCCESS

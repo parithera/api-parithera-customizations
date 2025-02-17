@@ -140,7 +140,7 @@ export class ChatService {
                     text: 'Hi, how can I help you today?',
                     code: '',
                     followup: [],
-                    JSON: {},
+                    json: {},
                     image: '',
                     agent: '',
                     error: '',
@@ -154,13 +154,26 @@ export class ChatService {
         return chat
     }
 
+    async getChatByProjectId(projectId: string): Promise<Chat>{
+        const chat = await this.chatRepository.findOneBy({project:{id: projectId}})
+        if (!chat) {
+            throw new Error('Unable to get chat by project Id')
+        }
+
+        return chat
+    }
+
+    async updateChat(chat: Chat) {
+        await this.chatRepository.save(chat)
+    }
+
     async updateChatHistory(chat: Chat, response: ResponseData, request: string, analysis_id: string) {
         const newMessage: Message =  {
             request: request,
             code: response.code,
             followup: response.followup,
             text: response.text,
-            JSON: response.JSON,
+            json: response.json,
             image: analysis_id,
             agent: response.agent,
             error: response.error,

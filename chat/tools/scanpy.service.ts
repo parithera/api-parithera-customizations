@@ -16,6 +16,9 @@ import { Socket } from "dgram";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Result } from "src/entity/codeclarity/Result";
 import { Repository } from "typeorm";
+import { BaseToolService } from "./base.service";
+import { ChatPrompts } from "../chat.prompts";
+import { Chat } from "../chat.entity";
 
 export interface ScriptResponse {
     response: ResponseData,
@@ -30,11 +33,49 @@ export class ScanpyToolService {
         private readonly analysisService: AnalysesService,
         private readonly sampleService: SampleService,
         private readonly projectService: ProjectService,
+        private readonly baseToolService: BaseToolService,
         @InjectRepository(Result, 'codeclarity')
         private resultRepository: Repository<Result>,
     ) { }
 
-    async parseScanpyAnswer(answer: string, response_data: ResponseData, data: Request, client: Socket): Promise<ResponseData> {
+    async start(data: Request, response_data: ResponseData, chat: Chat, user: AuthenticatedUser, client: Socket) {
+        // We initiate the prompts var 
+        const prompts = new ChatPrompts();
+
+        // Check whether a script needs to be written
+        // or whether we can use a pregenerated one
+        let scanpy_messages = this.baseToolService.forgeLLMRequest(prompts.getTypeOfScript(), data.request, chat, false)
+        let scanpy_answer = await this.baseToolService.askLLM(scanpy_messages)
+        let script = ''
+
+        if (scanpy_answer.includes('custom')) {
+            scanpy_messages = this.baseToolService.forgeLLMRequest(prompts.getScanpy(), data.request, chat, false)
+            scanpy_answer = await this.baseToolService.askLLM(scanpy_messages)
+            response_data = await this.writeCustomScript(scanpy_answer, response_data, data, client)
+        } else {
+            response_data.status = 'code_ready'
+            client.emit('chat:status', {
+                data: response_data,
+                type: ResponseType.INFO
+            })
+            if (scanpy_answer.includes('parithera_umap')) {
+                script = 'parithera_umap'
+            } else if (scanpy_answer.includes('parithera_tsne')) { 
+                script = 'parithera_tsne'
+            }else if (scanpy_answer.includes('parithera_cluster')) { 
+                script = 'parithera_cluster'
+            } else {
+                throw new Error('Error during LLM script descision')
+            }
+        }
+
+       
+        const script_response = await this.getScriptOutput(data.organizationId, data.projectId, script, user, response_data, client)
+        
+        return script_response
+    }
+
+    async writeCustomScript(answer: string, response_data: ResponseData, data: Request, client: Socket): Promise<ResponseData> {
         // Warn client that the llm answer was received
         response_data.status = 'llm_answer_received'
         client.emit('chat:status', {
@@ -42,11 +83,13 @@ export class ScanpyToolService {
             type: ResponseType.INFO
         })
 
+        // Get followups
         const splited_answer = answer.split('--FOLLOWUPS--')
 
         let script = splited_answer[0];
         script = script.split('```python')[1].split('```')[0]
 
+        // Add followups to answer
         if (splited_answer.length > 1 && splited_answer[0] !== '') {
             response_data.followup = splited_answer[1].split('\n').filter(followup => followup.trim() !== '');
         } else {
@@ -80,44 +123,10 @@ export class ScanpyToolService {
         const scriptPath = join(folderPath, 'script.py');
         fs.writeFileSync(scriptPath, script);
 
-        // Send message to aqmp to start the anaylsis
-        const queue = 'dispatcher_python';
-        const amqpHost = `${this.configService.getOrThrow<string>(
-            'AMQP_PROTOCOL'
-        )}://${this.configService.getOrThrow<string>('AMQP_USER')}:${process.env.AMQP_PASSWORD
-            }@${this.configService.getOrThrow<string>(
-                'AMQP_HOST'
-            )}:${this.configService.getOrThrow<string>('AMQP_PORT')}`;
-
-        try {
-            const conn = await amqp.connect(amqpHost);
-            const ch1 = await conn.createChannel();
-            await ch1.assertQueue(queue);
-
-            const message: DispatcherPluginMessage = {
-                Data: {
-                    type: 'chat'
-                },
-                AnalysisId: '',
-                ProjectId: data.projectId
-            };
-            ch1.sendToQueue(queue, Buffer.from(JSON.stringify(message)));
-            await ch1.close();
-        } catch (err) {
-            throw new RabbitMQError(err);
-        }
-
-        // Warn client that the script execution has started
-        response_data.status = 'script_started'
-        client.emit('chat:status', {
-            data: response_data,
-            type: ResponseType.INFO
-        })
-
         return response_data
     }
 
-    async getScriptOutput(organizationId: string, projectId: string, user: AuthenticatedUser, response_data: ResponseData, client: Socket): Promise<ScriptResponse> {
+    async getScriptOutput(organizationId: string, projectId: string, script: string, user: AuthenticatedUser, response_data: ResponseData, client: Socket): Promise<ScriptResponse> {
         const analyzer = await this.analyzerService.getByName(organizationId, 'execute_python_script', user)
         const samples = await this.sampleService.getManyByProject(organizationId, projectId, user)
 
@@ -139,7 +148,7 @@ export class ScanpyToolService {
                     project: projectId,
                     user: project.added_by?.id,
                     groups: groups,
-                    script: '',
+                    script: script,
                     type: 'chat'
                 }
             },

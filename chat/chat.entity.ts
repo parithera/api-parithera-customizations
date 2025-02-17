@@ -43,7 +43,7 @@ export class Message {
     @ApiProperty()
     @Expose()
     @Column('jsonb')
-    JSON: object;
+    json: object;
     
     @ApiProperty()
     @Expose()

@@ -10,6 +10,7 @@ One question by line, without bullets or hyphens at the front of them
 @Injectable()
 export class ChatPrompts {
     typeOfRequest: string;
+    typeOfScript: string;
     rag: string;
     scanpy: string;
 
@@ -51,6 +52,15 @@ A user asks you a question. Respond with either 'scanpy' or 'rag':
 Anwser nothing else than one of those two words.
         `;
 
+        this.typeOfScript = `
+A script needs to be executed depending on the following question. Reply by one of the following word:
+- Use 'parithera_umap' if the question can be answered by a umap.
+- Use 'parithera_tsne' if the question can be answered by a tsne.
+- Use 'parithera_cluster' if the question can be answered by a cluster.
+- Use 'custom' otherwise.
+Anwser nothing else than one of these words.
+        `;
+
         this.rag = `
 You are a biology expert that answers questions asked by physicians, researchers, students.
 Answer in a concise and clear way to their question.
@@ -65,6 +75,9 @@ If you are asked information about a gene or multiple genes, add citations. Here
         return this.typeOfRequest;
     }
 
+    getTypeOfScript(): string {
+        return this.typeOfScript;
+    }
 
     getRAG(): string {
         return this.rag;
