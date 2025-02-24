@@ -30,12 +30,28 @@ export class SampleController {
     @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
     @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
     @Post('')
-    async import(
+    async create(
         @Body() project: SamplesImportBody,
         @AuthUser() user: AuthenticatedUser,
         @Param('org_id') org_id: string
     ): Promise<CreatedResponse> {
-        return { id: await this.sampleService.import(org_id, project, user) };
+        return { id: await this.sampleService.create(org_id, project, user) };
+    }
+
+    @ApiTags('Samples')
+    @APIDocCreatedResponseDecorator()
+    @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
+    @ApiErrorDecorator({ statusCode: 409, errors: [AlreadyExists] })
+    @ApiErrorDecorator({ statusCode: 404, errors: [EntityNotFound] })
+    @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
+    @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
+    @Get('import/:sample_id')
+    async import(
+        @AuthUser() user: AuthenticatedUser,
+        @Param('org_id') org_id: string,
+        @Param('sample_id') sample_id: string
+    ): Promise<CreatedResponse> {
+        return { id: await this.sampleService.import(org_id, sample_id, user) };
     }
 
     @ApiTags('Samples')
@@ -107,6 +123,27 @@ export class SampleController {
     }
 
     @ApiTags('Samples')
+    @APIDocTypedPaginatedResponseDecorator(Sample)
+    @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
+    @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
+    @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
+    @Get('public')
+    async getPublicSamples(
+        @AuthUser() user: AuthenticatedUser,
+        // @Query('page', new DefaultValuePipe(0), ParseIntPipe) page?: number,
+        // @Query('entries_per_page', new DefaultValuePipe(0), ParseIntPipe) entries_per_page?: number,
+        // @Query('search_key') search_key?: string,
+        // @Query('sort_key') sort_key?: AllowedOrderByGetProjects,
+        // @Query('sort_direction') sort_direction?: SortDirection
+    ): Promise<TypedPaginatedResponse<Sample>> {
+        // const pageParam = page ? parseInt(page + '') : 0;
+        // const entriesPerPageParam = entries_per_page ? parseInt(entries_per_page + '') : 0;
+        return await this.sampleService.getPublicSamples(
+            user
+        );
+    }
+
+    @ApiTags('Samples')
     @ApiErrorDecorator({ statusCode: 401, errors: [NotAuthenticated] })
     @ApiErrorDecorator({ statusCode: 403, errors: [NotAuthorized] })
     @ApiErrorDecorator({ statusCode: 500, errors: [InternalError] })
@@ -153,13 +190,13 @@ export class SampleController {
         errors: [AnalyzerDoesNotExist, AnaylzerMissingConfigAttribute]
     })
     @Post(':sample_id/analyses')
-    async create(
+    async createAnalysis(
         @AuthUser() user: AuthenticatedUser,
         @Body() analysis: AnalysisCreateBody,
         @Param('org_id') org_id: string,
         @Param('sample_id') sample_id: string
     ): Promise<CreatedResponse> {
-        return { id: await this.sampleService.create(org_id, sample_id, analysis, user) };
+        return { id: await this.sampleService.createAnalysis(org_id, sample_id, analysis, user) };
     }
 
     @ApiTags('Samples')
