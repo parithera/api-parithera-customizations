@@ -59,7 +59,6 @@ export class SampleService {
     ) {
     }
 
-
     /**
      * Import a source code project
      * @throws {IntegrationNotSupported}
@@ -72,7 +71,7 @@ export class SampleService {
      * @param user The authenticated user
      * @returns the id of the created project
      */
-    async import(
+    async create(
         orgId: string,
         projectData: SamplesImportBody,
         user: AuthenticatedUser
@@ -104,6 +103,12 @@ export class SampleService {
         sample.files = []
         sample.users = [user_adding]
         sample.organizations = [organization]
+        sample.public = false
+        sample.assay = ""
+        sample.organism = ""
+        sample.cells = 0
+        sample.download = ""
+        sample.show = ""
 
         const added_sample = await this.sampleRepository.save(sample);
 
@@ -113,6 +118,104 @@ export class SampleService {
         await this.organizationLoggerService.addAuditLog(
             ActionType.SampleCreate,
             `The User imported sample ${projectData.name} to the organization.`,
+            orgId,
+            user.userId
+        );
+
+        return added_sample.id;
+    }
+
+    /**
+     * Import a source code project
+     * @throws {IntegrationNotSupported}
+     * @throws {AlreadyExists}
+     * @throws {EntityNotFound}
+     * @throws {NotAuthorized}
+     *
+     * @param orgId The id of the organization
+     * @param projectData The project data
+     * @param user The authenticated user
+     * @returns the id of the created project
+     */
+    async import(
+        orgId: string,
+        sampleId: string,
+        user: AuthenticatedUser
+    ): Promise<string> {
+        // (1) Check that the user is a member of the org
+        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+
+        const public_sample = await this.sampleRepository.findOneBy({ id: sampleId })
+        if (!public_sample) {
+            throw new EntityNotFound()
+        }
+
+        const sample = new Sample()
+
+        const user_adding = await this.userRepository.findOneOrFail({
+            where: {
+                id: user.userId
+            }
+        });
+
+        const organization = await this.organizationRepository.findOneOrFail({
+            where: {
+                id: orgId
+            }
+        });
+
+        sample.name = public_sample.name
+        sample.description = public_sample.description
+        sample.added_on = new Date()
+        sample.tags = [public_sample.assay, public_sample.organism]
+        sample.status = ""
+        sample.condition = ""
+        sample.projects = []
+        sample.files = []
+        sample.users = [user_adding]
+        sample.organizations = [organization]
+        sample.public = false
+        sample.assay = public_sample.assay
+        sample.organism = public_sample.organism
+        sample.cells = public_sample.cells
+        sample.download = public_sample.download
+        sample.show = public_sample.show
+
+        const added_sample = await this.sampleRepository.save(sample);
+
+        const folderPath = join('/private', organization.id, "samples", sample.id);
+        await mkdir(folderPath, { recursive: true });
+
+        const scanpyFolderPath = join(folderPath, 'scanpy');
+        await mkdir(scanpyFolderPath, { recursive: true });
+
+        const filePath = join(scanpyFolderPath, 'out.h5');
+        const fileUrl = public_sample.download;
+
+        const https = require('https');
+        const file = fs.createWriteStream(filePath);
+
+        https.get(fileUrl, function (response: any) {
+            response.pipe(file);
+
+            file.on('finish', () => {
+                file.close();
+                console.log('Download Completed');
+            });
+        }).on('error', (err: Error) => {
+            fs.unlink(filePath, (unlinkErr: NodeJS.ErrnoException | null) => {
+                if (unlinkErr) {
+                    console.error('Failed to delete file:', unlinkErr);
+                } else {
+                    console.log('File deleted successfully');
+                }
+            });
+            throw err;
+        });
+
+        await this.organizationLoggerService.addAuditLog(
+            ActionType.SampleCreate,
+            `The User imported sample ${sample.name} to the organization.`,
             orgId,
             user.userId
         );
@@ -230,7 +333,41 @@ export class SampleService {
                 },
                 projects: {
                     id: project_id
-                }
+                },
+                public: false
+            }
+        })
+
+        return {
+            data: samples,
+            page: 0,
+            entry_count: samples.length,
+            entries_per_page: 0,
+            total_entries: samples.length,
+            total_pages: 0,
+            matching_count: samples.length, // once you apply filters this needs to change
+            filter_count: {}
+        };
+    }
+
+    /**
+     * Get many projects of the org
+     * @throws {NotAuthorized}
+     *
+     * @param orgId The id of the org
+     * @param paginationUserSuppliedConf Paginiation configuration
+     * @param user The authenticatéd user
+     * @param searchKey A search key to filter the records by
+     * @param sortBy A sort field to sort the records by
+     * @param sortDirection A sort direction
+     * @returns
+     */
+    async getPublicSamples(
+        user: AuthenticatedUser,
+    ): Promise<TypedPaginatedData<Sample>> {
+        const samples = await this.sampleRepository.find({
+            where: {
+                public: true
             }
         })
 
@@ -415,7 +552,7 @@ export class SampleService {
      * @param user The authenticated user
      * @returns
      */
-    async create(
+    async createAnalysis(
         orgId: string,
         sampleId: string,
         analysisData: AnalysisCreateBody,
@@ -767,7 +904,7 @@ export class SampleService {
             throw new NotAuthorized();
         }
 
-        const organization = await this.organizationRepository.findOne({relations: {projects: true},where : {id: orgId}})
+        const organization = await this.organizationRepository.findOne({ relations: { projects: true }, where: { id: orgId } })
         if (!organization) {
             throw new EntityNotFound("Organization not found");
         }
@@ -792,7 +929,7 @@ export class SampleService {
         // Remove project folder
         const filePath = join('/private', organization.id, "projects", project.id);
         if (existsSync(filePath)) {
-            await rm(filePath, {recursive: true, force: true});
+            await rm(filePath, { recursive: true, force: true });
         }
 
         await this.organizationLoggerService.addAuditLog(

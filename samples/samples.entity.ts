@@ -50,6 +50,36 @@ export class Sample {
     @Expose()
     condition: string;
 
+    @Column({default:false})
+    @ApiProperty()
+    @Expose()
+    public: boolean;
+
+    @Column({default:""})
+    @ApiProperty()
+    @Expose()
+    organism: string;
+
+    @Column({default:""})
+    @ApiProperty()
+    @Expose()
+    assay: string;
+
+    @Column({default:0})
+    @ApiProperty()
+    @Expose()
+    cells: number;
+
+    @Column({default:""})
+    @ApiProperty()
+    @Expose()
+    show: string;
+
+    @Column({default:""})
+    @ApiProperty()
+    @Expose()
+    download: string;
+
     // Foreign keys
     @ApiProperty()
     @Expose()
