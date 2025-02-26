@@ -153,7 +153,7 @@ export class ScanpyToolService {
 
         const analysisId = await this.analysisService.create(organizationId, projectId, data, user)
 
-        const filePath = join('/private', organizationId, 'projects', projectId, "data", analysisId + '.png');
+        const filePath = join('/private', organizationId, 'projects', projectId, "data", analysisId);
         let checkCount = 0;
         const maxChecks = 90; // 1min 30sec
 
@@ -186,8 +186,20 @@ export class ScanpyToolService {
             type: ResponseType.INFO
         })
 
+        const jsonContent: object = await new Promise((resolve, reject) => {
+            return fs.readFile(filePath+ '.json', 'utf8', (err, data) => {
+                if (err) {
+                    reject(err);
+                    // resolve('');
+                }
+                const jsonObject = JSON.parse(data);
+                resolve(jsonObject);
+            });
+        });
+        response_data.json = jsonContent
+
         const image: string = await new Promise((resolve, reject) => {
-            return fs.readFile(filePath, 'base64', (err, data) => {
+            return fs.readFile(filePath+ '.png', 'base64', (err, data) => {
                 if (err) {
                     reject(EntityNotFound);
                 }
