@@ -24,17 +24,7 @@ import { Project } from 'src/entity/codeclarity/Project';
 import { Result } from 'src/entity/codeclarity/Result';
 import { AuthenticatedUser } from 'src/types/auth/types';
 import { Repository } from 'typeorm';
-
-interface Request {
-    sampleId: string;
-    orgId: string;
-    type: string;
-}
-
-interface Response {
-    data: string;
-    type: string;
-}
+import { Request, Response, ResponseType } from './types';
 
 @WebSocketGateway({
     cors: {
@@ -54,10 +44,11 @@ export class GraphsGateway {
     @WebSocketServer()
     server: Server;
 
-    @SubscribeMessage('graphs')
-    async graph(
+    @SubscribeMessage('data')
+    async data(
         @MessageBody() data: Request,
-        @AuthUser() user: AuthenticatedUser
+        @AuthUser() user: AuthenticatedUser,
+        @ConnectedSocket() client: Socket,
     ): Promise<Response> {
         await this.organizationMemberService.hasRequiredRole(
             data.orgId,
@@ -65,31 +56,121 @@ export class GraphsGateway {
             MemberRole.USER
         );
 
-        const filePath = join(
-            '/private',
-            data.orgId,
-            'samples',
-            data.sampleId,
-            'scanpy',
-            `${data.type}.png`
-        );
-        const response: Response = {
-            data: '',
-            type: data.type
-        };
+        let filePath = join('/private', data.orgId, 'samples', data.sampleId, 'scanpy', 'pca_variance_ratio_data.json');
 
-        while (!existsSync(filePath)) {
-            await new Promise((resolve) => setTimeout(resolve, 5000));
+        if (!existsSync(filePath)) {
+            throw new WsException(`File not found: ${filePath}`);
         }
 
-        return new Promise((resolve, reject) => {
-            return readFile(filePath, 'base64', (err, data) => {
+        let fileContent = await new Promise<string>((resolve, reject) => {
+            readFile(filePath, 'utf8', (err, data) => {
                 if (err) {
                     reject(err);
+                } else {
+                    resolve(data);
                 }
-                response.data = data;
-                resolve(response);
             });
         });
+
+        let jsonData = JSON.parse(fileContent);
+
+        client.emit('qc:status', {
+            data: {
+                content: jsonData,
+                error: '',
+                status: 'pca_variance_ratio'
+            },
+            type: ResponseType.INFO
+        })
+
+        filePath = join('/private', data.orgId, 'samples', data.sampleId, 'scanpy', 'violin_and_scatter_plot_data.json');
+
+        if (!existsSync(filePath)) {
+            throw new WsException(`File not found: ${filePath}`);
+        }
+
+        fileContent = await new Promise<string>((resolve, reject) => {
+            readFile(filePath, 'utf8', (err, data) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(data);
+                }
+            });
+        });
+
+        jsonData = JSON.parse(fileContent);
+
+        client.emit('qc:status', {
+            data: {
+                content: jsonData,
+                error: '',
+                status: 'violin_and_scatter_plot_data'
+            },
+            type: ResponseType.INFO
+        })
+
+        filePath = join('/private', data.orgId, 'samples', data.sampleId, 'scanpy', 'highly_variable_genes_data.json');
+
+        if (!existsSync(filePath)) {
+            throw new WsException(`File not found: ${filePath}`);
+        }
+
+        fileContent = await new Promise<string>((resolve, reject) => {
+            readFile(filePath, 'utf8', (err, data) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(data);
+                }
+            });
+        });
+
+        jsonData = JSON.parse(fileContent);
+
+        client.emit('qc:status', {
+            data: {
+                content: jsonData,
+                error: '',
+                status: 'highly_variable_genes_data'
+            },
+            type: ResponseType.INFO
+        })
+
+        filePath = join('/private', data.orgId, 'samples', data.sampleId, 'scanpy', 'umap_data.json');
+
+        if (!existsSync(filePath)) {
+            throw new WsException(`File not found: ${filePath}`);
+        }
+
+        fileContent = await new Promise<string>((resolve, reject) => {
+            readFile(filePath, 'utf8', (err, data) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(data);
+                }
+            });
+        });
+
+        jsonData = JSON.parse(fileContent);
+
+        client.emit('qc:status', {
+            data: {
+                content: jsonData,
+                error: '',
+                status: 'umap_data'
+            },
+            type: ResponseType.INFO
+        })
+
+        return {
+            data: {
+                content: {},
+                error: '',
+                status: ''
+            },
+            type: ResponseType.SUCCESS
+        }
     }
 }
