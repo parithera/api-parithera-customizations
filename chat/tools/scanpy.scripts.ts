@@ -7,8 +7,8 @@ export interface ScanpyData {
     response_data: ResponseData
 }
 
-export function choseScript(scanpy_answer: string, response_data: ResponseData): ScanpyData {
-    const response : ScanpyData = {
+export function choseScript(scanpy_answer: string, response_data: ResponseData, organizationId: string, projectId: string): ScanpyData {
+    const response: ScanpyData = {
         script: '',
         response_data: response_data
     }
@@ -51,15 +51,26 @@ export function choseScript(scanpy_answer: string, response_data: ResponseData):
         ]
     };
 
-    if (scanpy_answer.includes('parithera_umap')) {
+    const anwser = JSON.parse(scanpy_answer);
+
+    try {
+        if (anwser["args"]) {
+            const filePath = join('/private', organizationId, 'projects', projectId, 'python', 'arguments.json');
+            fs.writeFileSync(filePath, JSON.stringify(anwser["args"], null, 2));
+        }
+    } catch (error) {
+        console.error('Error parsing or writing arguments:', error);
+    }
+
+    if (anwser["type"].includes('parithera_umap')) {
         response.script = 'parithera_umap';
-    } else if (scanpy_answer.includes('parithera_tsne')) {
+    } else if (anwser["type"].includes('parithera_tsne')) {
         response.script = 'parithera_tsne';
-    } else if (scanpy_answer.includes('parithera_cluster')) {
+    } else if (anwser["type"].includes('parithera_cluster')) {
         response.script = 'parithera_cluster';
-    } else if (scanpy_answer.includes('parithera_leiden')) {
+    } else if (anwser["type"].includes('parithera_leiden')) {
         response.script = 'parithera_leiden';
-    } else if (scanpy_answer.includes('parithera_marker_genes')) {
+    } else if (anwser["type"].includes('parithera_marker_genes')) {
         response.script = 'parithera_marker_genes';
     } else {
         throw new Error('Error during LLM script decision');

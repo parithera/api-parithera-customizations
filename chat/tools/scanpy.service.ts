@@ -53,7 +53,9 @@ export class ScanpyToolService {
         } else {
             const scanpy_data = choseScript(
                 scanpy_answer,
-                response_data
+                response_data,
+                data.organizationId,
+                data.projectId
             )
             response_data = scanpy_data.response_data
             script = scanpy_data.script
@@ -189,13 +191,16 @@ export class ScanpyToolService {
         const jsonContent: object = await new Promise((resolve, reject) => {
             return fs.readFile(filePath+ '.json', 'utf8', (err, data) => {
                 if (err) {
-                    reject(err);
-                    // resolve('');
+                    // reject(err);
+                    resolve({});
                 }
                 const jsonObject = JSON.parse(data);
                 resolve(jsonObject);
             });
         });
+        if (Object.keys(jsonContent).length === 0) {
+            throw new Error("Script failed to execute");
+        }
         response_data.json = jsonContent
 
         const image: string = await new Promise((resolve, reject) => {

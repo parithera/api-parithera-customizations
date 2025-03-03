@@ -54,14 +54,16 @@ Anwser nothing else than one of those two words.
         `;
 
         this.typeOfScript = `
-A script needs to be executed depending on the following question. Reply by one of the following word:
-- Use 'parithera_umap' if the question can be answered by a umap.
-- Use 'parithera_tsne' if the question can be answered by a tsne.
-- Use 'parithera_cluster' if the question can be answered by a cluster.
-- Use 'parithera_leiden' if the user wants to test different leiden cluster parameters.
-- Use 'parithera_marker_genes' if the user wants to see marker genes per cluster.
-- Use 'custom' otherwise.
-Anwser nothing else than one of these words.
+A script needs to be executed depending on the following question. Here are the JSON configurations that can be used:
+- {'type':'parithera_umap'} if the question can be answered by a umap.
+- {'type':'parithera_tsne'} if the question can be answered by a tsne.
+- {'type':'parithera_cluster'} if the question can be answered by a cluster.
+- {'type':'parithera_leiden', 'args': {'leiden_res': $leiden_res$}} if the user wants to test different leiden cluster parameters.
+- {'type':'parithera_marker_genes', 'args': {'cluster_name': $cluster_name$}} if the user wants to see marker genes per cluster.
+- {'type':'custom'} otherwise.
+Then if there are arguments, fill the corresponding value you find in the question in the JSON object.
+The arguments name are between two "$".
+Answer only in an unindented JSON format.
         `;
 
         this.rag = `
