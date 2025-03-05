@@ -1,61 +1,53 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { File as FileEntity } from 'src/entity/codeclarity/File';
 import { File } from '@nest-lab/fastify-multer';
 import { AuthenticatedUser } from 'src/types/auth/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
-import { MemberRole, OrganizationMemberships } from 'src/entity/codeclarity/OrganizationMemberships';
 import { Sample } from './samples.entity';
 import { AssociateProjectToSamplesPatchBody, SamplesImportBody } from './samples.http';
-import { Organization } from 'src/entity/codeclarity/Organization';
-import { User } from 'src/entity/codeclarity/User';
 import { join } from 'path';
 import { mkdir, rm } from 'fs/promises';
 import { existsSync } from 'fs';
-import { OrganizationLoggerService } from 'src/codeclarity_modules/organizations/organizationLogger.service';
-import { ActionType } from 'src/entity/codeclarity/Log';
 import { TypedPaginatedData } from 'src/types/paginated/types';
-import { UploadData } from 'src/codeclarity_modules/file/file.controller';
 import { escapeString } from 'src/utils/cleaner';
 import * as fs from 'fs';
 import * as amqp from 'amqplib';
 import { AnalysisCreateBody } from 'src/types/entities/frontend/Analysis';
-import { AnalyzerDoesNotExist, AnaylzerMissingConfigAttribute, EntityNotFound, NotAuthorized, ProjectDoesNotExist, RabbitMQError } from 'src/types/errors/types';
-import { Analysis, AnalysisStage, AnalysisStatus } from 'src/entity/codeclarity/Analysis';
+import { AnaylzerMissingConfigAttribute, EntityNotFound, NotAuthorized, RabbitMQError } from 'src/types/errors/types';
 import { AnalysisStartMessageCreate } from 'src/types/rabbitMqMessages';
-import { Analyzer } from 'src/entity/codeclarity/Analyzer';
-import { Project } from 'src/entity/codeclarity/Project';
 import { ChatService } from '../chat/chat.service';
-import { Result } from 'src/entity/codeclarity/Result';
+import { UsersRepository } from 'src/base_modules/users/users.repository';
+import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
+import { FileRepository } from 'src/base_modules/file/file.repository';
+import { AnalysesRepository } from 'src/base_modules/analyses/analyses.repository';
+import { ProjectsRepository } from 'src/base_modules/projects/projects.repository';
+import { AnalysisResultsRepository } from 'src/codeclarity_modules/results/results.repository';
+import { AnalyzersRepository } from 'src/base_modules/analyzers/analyzers.repository';
+import { OrganizationLoggerService } from 'src/base_modules/organizations/organizationLogger.service';
+import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { ActionType } from 'src/base_modules/organizations/log.entity';
+import { UploadData } from 'src/base_modules/file/file.controller';
+import { Analysis, AnalysisStage, AnalysisStatus } from 'src/base_modules/analyses/analysis.entity';
+import { File as FileEntity } from 'src/base_modules/file/file.entity';
+import { ChatRepository } from '../chat/chat.repository';
 
 @Injectable()
 export class SampleService {
 
     constructor(
-        private readonly organizationMemberService: OrganizationsMemberService,
         private readonly organizationLoggerService: OrganizationLoggerService,
         private readonly configService: ConfigService,
-        private readonly chatService: ChatService,
+        private readonly chatRepository: ChatRepository,
+        private readonly usersRepository: UsersRepository,
+        private readonly organizationsRepository: OrganizationsRepository,
+        private readonly fileRepository: FileRepository,
+        private readonly analysesRepository: AnalysesRepository,
+        private readonly projectsRepository: ProjectsRepository,
+        private readonly resultsRepository: AnalysisResultsRepository,
+        private readonly analyzersRepository: AnalyzersRepository,
         @InjectRepository(Sample, 'codeclarity')
         private sampleRepository: Repository<Sample>,
-        @InjectRepository(Organization, 'codeclarity')
-        private organizationRepository: Repository<Organization>,
-        @InjectRepository(User, 'codeclarity')
-        private userRepository: Repository<User>,
-        @InjectRepository(FileEntity, 'codeclarity')
-        private fileRepository: Repository<FileEntity>,
-        @InjectRepository(Analysis, 'codeclarity')
-        private analysisRepository: Repository<Analysis>,
-        @InjectRepository(Analyzer, 'codeclarity')
-        private analyzerRepository: Repository<Analyzer>,
-        @InjectRepository(Project, 'codeclarity')
-        private projectRepository: Repository<Project>,
-        @InjectRepository(Result, 'codeclarity')
-        private resultRepository: Repository<Result>,
-        @InjectRepository(OrganizationMemberships, 'codeclarity')
-        private membershipRepository: Repository<OrganizationMemberships>
     ) {
     }
 
@@ -77,21 +69,13 @@ export class SampleService {
         user: AuthenticatedUser
     ): Promise<string> {
         // (1) Check that the user is a member of the org
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         const sample = new Sample();
 
-        const user_adding = await this.userRepository.findOneOrFail({
-            where: {
-                id: user.userId
-            }
-        });
+        const user_adding = await this.usersRepository.getUserById(user.userId)
 
-        const organization = await this.organizationRepository.findOneOrFail({
-            where: {
-                id: orgId
-            }
-        });
+        const organization = await this.organizationsRepository.getOrganizationById(orgId)
 
         sample.added_on = new Date()
         sample.name = projectData.name
@@ -143,7 +127,7 @@ export class SampleService {
         user: AuthenticatedUser
     ): Promise<string> {
         // (1) Check that the user is a member of the org
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         const public_sample = await this.sampleRepository.findOneBy({ id: sampleId })
         if (!public_sample) {
@@ -152,17 +136,9 @@ export class SampleService {
 
         const sample = new Sample()
 
-        const user_adding = await this.userRepository.findOneOrFail({
-            where: {
-                id: user.userId
-            }
-        });
+        const user_adding = await this.usersRepository.getUserById(user.userId)
 
-        const organization = await this.organizationRepository.findOneOrFail({
-            where: {
-                id: orgId
-            }
-        });
+        const organization = await this.organizationsRepository.getOrganizationById(orgId)
 
         sample.name = public_sample.name
         sample.description = public_sample.description
@@ -240,7 +216,7 @@ export class SampleService {
         user: AuthenticatedUser,
     ): Promise<TypedPaginatedData<Sample>> {
         // Every member of an org can retrieve all project
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         const samples = await this.sampleRepository.find({
             where: {
@@ -280,7 +256,7 @@ export class SampleService {
         user: AuthenticatedUser,
     ): Promise<string> {
         // Every member of an org can retrieve all project
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         const sample = await this.sampleRepository.findOne({
             where: {
@@ -324,7 +300,7 @@ export class SampleService {
         user: AuthenticatedUser,
     ): Promise<TypedPaginatedData<Sample>> {
         // Every member of an org can retrieve all project
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         const samples = await this.sampleRepository.find({
             where: {
@@ -390,7 +366,7 @@ export class SampleService {
         sample_id: string,
         queryParams: UploadData
     ): Promise<void> {
-        await this.organizationMemberService.hasRequiredRole(
+        await this.organizationsRepository.hasRequiredRole(
             organization_id,
             user.userId,
             MemberRole.USER
@@ -412,14 +388,7 @@ export class SampleService {
         }
 
         // Retrieve the user who added the file
-        const added_by = await this.userRepository.findOne({
-            where: {
-                id: user.userId
-            }
-        });
-        if (!added_by) {
-            throw new Error('User not found');
-        }
+        const added_by = await this.usersRepository.getUserById(user.userId)
 
         // Write the file to the file system
         const folderPath = join('/private', organization_id, "samples", sample.id);
@@ -537,7 +506,7 @@ export class SampleService {
             file_entity.type = queryParams.type;
             file_entity.name = escapedFileName;
 
-            await this.fileRepository.save(file_entity);
+            await this.fileRepository.saveFile(file_entity);
         }
     }
 
@@ -559,7 +528,7 @@ export class SampleService {
         user: AuthenticatedUser
     ): Promise<string> {
         // (1) Check if user has access to org
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         // (2) Check if the project belongs to the org
         const sample = await this.sampleRepository.findOne({
@@ -572,27 +541,11 @@ export class SampleService {
             throw new NotAuthorized();
         }
 
-        const analyzer = await this.analyzerRepository.findOneBy({
-            id: analysisData.analyzer_id
-        });
+        const analyzer = await this.analyzersRepository.getAnalyzerById(analysisData.analyzer_id)
 
-        if (!analyzer) {
-            throw new AnalyzerDoesNotExist();
-        }
+        const creator = await this.usersRepository.getUserById(user.userId)
 
-        const creator = await this.userRepository.findOne({
-            where: { id: user.userId }
-        });
-        if (!creator) {
-            throw new EntityNotFound();
-        }
-
-        const organization = await this.organizationRepository.findOne({
-            where: { id: orgId }
-        });
-        if (!organization) {
-            throw new EntityNotFound();
-        }
+        const organization = await this.organizationsRepository.getOrganizationById(orgId)
 
         const config_structure: { [key: string]: any } = {};
         const config: { [key: string]: any } = {};
@@ -655,7 +608,7 @@ export class SampleService {
         analysis.organization = organization;
         // analysis.integration = project.integration;
 
-        const created_analysis = await this.analysisRepository.save(analysis);
+        const created_analysis = await this.analysesRepository.saveAnalysis(analysis);
 
         // Send message to aqmp to start the anaylsis
         const queue = this.configService.getOrThrow<string>('AMQP_ANALYSES_QUEUE');
@@ -702,18 +655,12 @@ export class SampleService {
         authenticatedUser: AuthenticatedUser
     ): Promise<void> {
         // (1) Check if user has access to org
-        await this.organizationMemberService.hasRequiredRole(orgId, authenticatedUser.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, authenticatedUser.userId, MemberRole.USER);
 
         // (2) Check if the project belongs to the org
-        const project = await this.projectRepository.findOne({
-            relations: {
-                organizations: true,
-            },
-            where: { id: patchBody.projectId, organizations: { id: orgId } }
-        });
-        if (!project) {
-            throw new ProjectDoesNotExist()
-        }
+        const project = await this.projectsRepository.getProjectByIdAndOrganization(patchBody.projectId, orgId, {
+            organizations: true,
+        })
 
         const samples_to_update = []
 
@@ -748,7 +695,7 @@ export class SampleService {
      */
     async delete(orgId: string, id: string, user: AuthenticatedUser): Promise<void> {
         // (1) Check that member is at least a user
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         // (2) Check if project belongs to org
         const isSampleOfOrg = await this.sampleRepository.exists({
@@ -765,27 +712,7 @@ export class SampleService {
             throw new NotAuthorized();
         }
 
-        const membership = await this.membershipRepository.findOne({
-            relations: {
-                organization: true
-            },
-            where: {
-                organization: {
-                    id: orgId
-                },
-                user: {
-                    id: user.userId
-                }
-            },
-            select: {
-                role: true,
-                organizationMembershipId: true
-            }
-        });
-
-        if (!membership) {
-            throw new EntityNotFound();
-        }
+        const membership = await this.organizationsRepository.getMembershipRole(orgId, user.userId)
 
         const sample = await this.sampleRepository.findOne({
             relations: {
@@ -819,7 +746,7 @@ export class SampleService {
 
         if (sample.files.length > 0) {
             const file_ids = sample.files.map(file => file.id);
-            await this.fileRepository.delete(file_ids)
+            await this.fileRepository.deleteFiles(file_ids)
         }
 
         await this.sampleRepository.delete(id);
@@ -843,60 +770,19 @@ export class SampleService {
      */
     async deleteProject(orgId: string, id: string, user: AuthenticatedUser): Promise<void> {
         // (1) Check that member is at least a user
-        await this.organizationMemberService.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
         // (2) Check if project belongs to org
-        const isProjectOfOrg = await this.projectRepository.exists({
-            relations: ['organizations'],
-            where: {
-                id: id,
-                organizations: {
-                    id: orgId
-                }
-            }
-        });
+        await this.projectsRepository.doesProjectBelongToOrg(id, orgId)
 
-        if (!isProjectOfOrg) {
-            throw new NotAuthorized();
-        }
+        const membership = await this.organizationsRepository.getMembershipRole(orgId, user.userId)
 
-        const membership = await this.membershipRepository.findOne({
-            relations: {
-                organization: true
+        const project = await this.projectsRepository.getProjectById(id, {
+            analyses: {
+                results: true
             },
-            where: {
-                organization: {
-                    id: orgId
-                },
-                user: {
-                    id: user.userId
-                }
-            },
-            select: {
-                role: true,
-                organizationMembershipId: true
-            }
-        });
-
-        if (!membership) {
-            throw new EntityNotFound();
-        }
-
-        const project = await this.projectRepository.findOne({
-            relations: {
-                analyses: {
-                    results: true
-                },
-                organizations: true
-            },
-            where: {
-                id: id
-            }
+            organizations: true
         })
-
-        if (!project) {
-            throw new NotAuthorized();
-        }
 
         // Every moderator, admin or owner can remove a project.
         // a normal user can also delete it, iff he is the one that added the project
@@ -904,27 +790,24 @@ export class SampleService {
             throw new NotAuthorized();
         }
 
-        const organization = await this.organizationRepository.findOne({ relations: { projects: true }, where: { id: orgId } })
-        if (!organization) {
-            throw new EntityNotFound("Organization not found");
-        }
+        const organization = await this.organizationsRepository.getOrganizationById(orgId, {projects:true})
 
         // Find project in organization.projects and remove it
         const updatedProjects = organization.projects.filter(p => p.id !== id);
         organization.projects = updatedProjects;
 
-        await this.organizationRepository.save(organization);
+        await this.organizationsRepository.saveOrganization(organization);
 
         for (const analysis of project.analyses) {
-            await this.resultRepository.remove(analysis.results)
+            await this.resultsRepository.removeResults(analysis.results)
         }
-        await this.analysisRepository.remove(project.analyses)
-        const chat = await this.chatService.getChatByProjectId(project.id)
+        await this.analysesRepository.removeAnalyses(project.analyses)
+        const chat = await this.chatRepository.getByProjectId(project.id)
         if (chat) {
-            await this.chatService.removeChat(chat)
+            await this.chatRepository.removeChat(chat)
         }
 
-        await this.projectRepository.delete(id);
+        await this.projectsRepository.deleteProject(id);
 
         // Remove project folder
         const filePath = join('/private', organization.id, "projects", project.id);

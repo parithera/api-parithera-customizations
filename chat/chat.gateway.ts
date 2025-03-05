@@ -7,10 +7,7 @@ import {
     WebSocketServer,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { CombinedAuthGuard } from 'src/codeclarity_modules/auth/guards/combined.guard';
-import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
 import { AuthenticatedUser } from 'src/types/auth/types';
 import { ChatService } from './chat.service';
 import { ChatPrompts } from './chat.prompts';
@@ -20,6 +17,10 @@ import { RAGToolService } from './tools/rag.service';
 import { ScanpyToolService } from './tools/scanpy.service';
 import { BaseToolService } from './tools/base.service';
 import { Socket } from 'dgram';
+import { CombinedAuthGuard } from 'src/base_modules/auth/guards/combined.guard';
+import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
+import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { ChatRepository } from './chat.repository';
 
 @WebSocketGateway({
     cors: {
@@ -30,7 +31,8 @@ import { Socket } from 'dgram';
 @UseGuards(CombinedAuthGuard)
 export class ChatGateway {
     constructor(
-        private readonly organizationMemberService: OrganizationsMemberService,
+        private readonly organizationsRepository: OrganizationsRepository,
+        private readonly chatRepository: ChatRepository,
         private readonly chatService: ChatService,
         private readonly ragToolService: RAGToolService,
         private readonly scanpyToolService: ScanpyToolService,
@@ -45,7 +47,7 @@ export class ChatGateway {
         @AuthUser() user: AuthenticatedUser,
         @ConnectedSocket() client: Socket,
     ): Promise<Response> {
-        await this.organizationMemberService.hasRequiredRole(
+        await this.organizationsRepository.hasRequiredRole(
             data.organizationId,
             user.userId,
             MemberRole.USER
@@ -102,7 +104,7 @@ export class ChatGateway {
 
         // Update chat history in DB
         response_data.status = 'done'
-        await this.chatService.updateChatHistory(chat, response_data, data.request, analysis_id)
+        await this.chatRepository.updateChatHistory(chat, response_data, data.request, analysis_id)
 
         const response: Response = {
             data: response_data,

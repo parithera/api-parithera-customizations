@@ -16,15 +16,12 @@ import { join } from 'path';
 import { from, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Server, Socket } from 'socket.io';
-import { CombinedAuthGuard } from 'src/codeclarity_modules/auth/guards/combined.guard';
-import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
-import { Project } from 'src/entity/codeclarity/Project';
-import { Result } from 'src/entity/codeclarity/Result';
 import { AuthenticatedUser } from 'src/types/auth/types';
-import { Repository } from 'typeorm';
 import { Request, Response, ResponseType } from './types';
+import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
+import { CombinedAuthGuard } from 'src/base_modules/auth/guards/combined.guard';
+import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
 
 @WebSocketGateway({
     cors: {
@@ -35,11 +32,7 @@ import { Request, Response, ResponseType } from './types';
 @UseGuards(CombinedAuthGuard)
 export class GraphsGateway {
     constructor(
-        private readonly organizationMemberService: OrganizationsMemberService,
-        @InjectRepository(Result, 'codeclarity')
-        private resultRepository: Repository<Result>,
-        @InjectRepository(Project, 'codeclarity')
-        private projectRepository: Repository<Project>
+        private readonly organizationsRepository: OrganizationsRepository,
     ) {}
     @WebSocketServer()
     server: Server;
@@ -50,7 +43,7 @@ export class GraphsGateway {
         @AuthUser() user: AuthenticatedUser,
         @ConnectedSocket() client: Socket,
     ): Promise<Response> {
-        await this.organizationMemberService.hasRequiredRole(
+        await this.organizationsRepository.hasRequiredRole(
             data.orgId,
             user.userId,
             MemberRole.USER

@@ -4,24 +4,28 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Chat } from './chat.entity';
 import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
-import { Project } from 'src/entity/codeclarity/Project';
-import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
-import { OrganizationMemberships } from 'src/entity/codeclarity/OrganizationMemberships';
-import { Result } from 'src/entity/codeclarity/Result';
-import { Sample } from '../samples/samples.entity';
 import { ChatGateway } from './chat.gateway';
 import { ToolsModule } from './tools/tools.module';
+import { SampleModule } from '../samples/samples.module';
+import { OrganizationsModule } from 'src/base_modules/organizations/organizations.module';
+import { ProjectsModule } from 'src/base_modules/projects/projects.module';
+import { ResultsModule } from 'src/codeclarity_modules/results/results.module';
+import { ChatRepository } from './chat.repository';
 
 @Module({
 	imports: [
 		ToolsModule,
-		TypeOrmModule.forFeature([Chat, Project, OrganizationMemberships, Result, Sample], 'codeclarity')
+		SampleModule,
+		OrganizationsModule,
+		ProjectsModule,
+		ResultsModule,
+		TypeOrmModule.forFeature([Chat], 'codeclarity')
 	],
-	exports:[ChatService],
+	exports:[ChatService, ChatRepository],
 	providers: [
 		ChatService,
-		OrganizationsMemberService,
 		ChatGateway,
+		ChatRepository
 	],
 	controllers: [ChatController]
 })

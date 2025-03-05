@@ -7,24 +7,24 @@ import {
     WebSocketServer,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { CombinedAuthGuard } from 'src/codeclarity_modules/auth/guards/combined.guard';
-import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
 import { AuthenticatedUser } from 'src/types/auth/types';
 import { Request, Response, ResponseType } from './types';
 import { Socket } from 'dgram';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Project } from 'src/entity/codeclarity/Project';
 import { Repository } from 'typeorm';
 import { EntityNotFound, ProjectDoesNotExist } from 'src/types/errors/types';
 import { Sample } from './samples.entity';
-import { AnalyzersService } from 'src/codeclarity_modules/analyzers/analyzers.service';
-import { AnalysesService } from 'src/codeclarity_modules/analyses/analyses.service';
-import { AnalysisResultsService } from 'src/codeclarity_modules/results/results.service';
-import { Result } from 'src/entity/codeclarity/Result';
 import { Chat } from '../chat/chat.entity';
 import { ChatService } from '../chat/chat.service';
+import { AnalyzersService } from 'src/base_modules/analyzers/analyzers.service';
+import { AnalysesService } from 'src/base_modules/analyses/analyses.service';
+import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
+import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { ProjectsRepository } from 'src/base_modules/projects/projects.repository';
+import { CombinedAuthGuard } from 'src/base_modules/auth/guards/combined.guard';
+import { AnalysisResultsRepository } from 'src/codeclarity_modules/results/results.repository';
+import { ChatRepository } from '../chat/chat.repository';
 
 @WebSocketGateway({
     cors: {
@@ -35,16 +35,15 @@ import { ChatService } from '../chat/chat.service';
 @UseGuards(CombinedAuthGuard)
 export class LinkSamplesGateway {
     constructor(
-        private readonly organizationMemberService: OrganizationsMemberService,
         private readonly analyzerService: AnalyzersService,
         private readonly analysisService: AnalysesService,
         private readonly chatService: ChatService,
-        @InjectRepository(Project, 'codeclarity')
-        private projectRepository: Repository<Project>,
+        private readonly chatRepository: ChatRepository,
+        private readonly organizationsRepository: OrganizationsRepository,
+        private readonly projectsRepository: ProjectsRepository,
+        private readonly resultsRepository: AnalysisResultsRepository,
         @InjectRepository(Sample, 'codeclarity')
         private sampleRepository: Repository<Sample>,
-        @InjectRepository(Result, 'codeclarity')
-        private resultRepository: Repository<Result>,
     ) { }
     @WebSocketServer()
     server: Server;
@@ -56,22 +55,16 @@ export class LinkSamplesGateway {
         @ConnectedSocket() client: Socket,
     ): Promise<Response> {
         // (1) Check if user has access to org
-        await this.organizationMemberService.hasRequiredRole(
+        await this.organizationsRepository.hasRequiredRole(
             data.organizationId,
             user.userId,
             MemberRole.USER
         );
 
         // (2) Check if the project belongs to the org
-        const project = await this.projectRepository.findOne({
-            relations: {
-                organizations: true,
-            },
-            where: { id: data.projectId, organizations: { id: data.organizationId } }
-        });
-        if (!project) {
-            throw new ProjectDoesNotExist()
-        }
+        const project = await this.projectsRepository.getProjectByIdAndOrganization(data.projectId, data.organizationId, {
+            organizations: true,
+        })
 
         const samples_to_update = []
 
@@ -124,19 +117,10 @@ export class LinkSamplesGateway {
          let checkCount = 0;
         const maxChecks = 180; // 2 minutes (60 seconds * 2)
 
-        let result = await this.resultRepository.findOne({
-            where: {
-                analysis: {id: analysisId}
-            }
-        })
+        let result = await this.resultsRepository.getByAnalysisIdAndPluginType(analysisId, 'python')
 
         while (!result && checkCount < maxChecks) {
-            result = await this.resultRepository.findOne({
-                where: {
-                    analysis: {id: analysisId},
-                    plugin: 'python'
-                }
-            })
+            result = await this.resultsRepository.getByAnalysisIdAndPluginType(analysisId, 'python')
             await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
             checkCount++;
         }
@@ -149,9 +133,9 @@ export class LinkSamplesGateway {
             }
         }
 
-        const chat_to_modify = await this.chatService.getChatByProjectId(project.id)
+        const chat_to_modify = await this.chatRepository.getByProjectId(project.id)
         chat.messages[0].text = 'Hi, how can I help you today?'
-        await this.chatService.updateChat(chat)
+        await this.chatRepository.updateChat(chat)
 
         // Warn client that the script has been executed
         response_data.status = 'script_executed'

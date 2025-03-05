@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
 import { GraphController } from './graphs.controller';
-import { Result } from 'src/entity/codeclarity/Result';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
-import { OrganizationMemberships } from 'src/entity/codeclarity/OrganizationMemberships';
-import { Project } from 'src/entity/codeclarity/Project';
 import { GraphsGateway } from './graph.gateway';
+import { OrganizationsModule } from 'src/base_modules/organizations/organizations.module';
+import { ProjectsModule } from 'src/base_modules/projects/projects.module';
+import { ResultsModule } from 'src/codeclarity_modules/results/results.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Result, Project, OrganizationMemberships], 'codeclarity')],
-    providers: [OrganizationsMemberService, GraphsGateway],
+    imports: [
+        OrganizationsModule,
+        ProjectsModule,
+        ResultsModule
+    ],
+    providers: [GraphsGateway],
     controllers: [GraphController]
 })
 export class GraphModule {}

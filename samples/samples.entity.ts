@@ -8,10 +8,10 @@ import {
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { User } from 'src/entity/codeclarity/User';
-import { File } from 'src/entity/codeclarity/File';
-import { Project } from 'src/entity/codeclarity/Project';
-import { Organization } from 'src/entity/codeclarity/Organization';
+import { Project } from 'src/base_modules/projects/project.entity';
+import { Organization } from 'src/base_modules/organizations/organization.entity';
+import { User } from 'src/base_modules/users/users.entity';
+import { File } from 'src/base_modules/file/file.entity';
 
 @Entity()
 export class Sample {

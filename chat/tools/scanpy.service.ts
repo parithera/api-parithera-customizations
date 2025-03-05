@@ -1,23 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import { Group, Request, ResponseData, ResponseType } from "../types";
 import { join } from "path";
-import { ConfigService } from "@nestjs/config";
 import { EntityNotFound } from "src/types/errors/types";
 import * as fs from 'fs';
-import { AnalyzersService } from "src/codeclarity_modules/analyzers/analyzers.service";
 import { AuthenticatedUser } from "src/types/auth/types";
-import { SampleService } from "src/enterprise_modules/samples/samples.service";
-import { AnalysesService } from "src/codeclarity_modules/analyses/analyses.service";
 import { AnalysisCreateBody } from "src/types/entities/frontend/Analysis";
-import { ProjectService } from "src/codeclarity_modules/projects/projects.service";
 import { Socket } from "dgram";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Result } from "src/entity/codeclarity/Result";
-import { Repository } from "typeorm";
 import { BaseToolService } from "./base.service";
 import { ChatPrompts } from "../chat.prompts";
 import { Chat } from "../chat.entity";
 import { choseScript } from "./scanpy.scripts";
+import { AnalysisResultsRepository } from "src/codeclarity_modules/results/results.repository";
+import { ProjectService } from "src/base_modules/projects/projects.service";
+import { AnalyzersService } from "src/base_modules/analyzers/analyzers.service";
+import { AnalysesService } from "src/base_modules/analyses/analyses.service";
+import { SampleService } from "src/enterprise_modules/samples/samples.service";
 
 export interface ScriptResponse {
     response: ResponseData,
@@ -27,13 +24,12 @@ export interface ScriptResponse {
 @Injectable()
 export class ScanpyToolService {
     constructor(
+        private readonly baseToolService: BaseToolService,
+        private readonly resultsRepository: AnalysisResultsRepository,
+        private readonly projectService: ProjectService,
         private readonly analyzerService: AnalyzersService,
         private readonly analysisService: AnalysesService,
-        private readonly sampleService: SampleService,
-        private readonly projectService: ProjectService,
-        private readonly baseToolService: BaseToolService,
-        @InjectRepository(Result, 'codeclarity')
-        private resultRepository: Repository<Result>,
+        private readonly sampleService: SampleService
     ) { }
 
     async start(data: Request, response_data: ResponseData, chat: Chat, user: AuthenticatedUser, client: Socket) {
@@ -159,19 +155,10 @@ export class ScanpyToolService {
         let checkCount = 0;
         const maxChecks = 90; // 1min 30sec
 
-        let result = await this.resultRepository.findOne({
-            where: {
-                analysis: { id: analysisId }
-            }
-        })
+        let result = await this.resultsRepository.getByAnalysisIdAndPluginType(analysisId, 'python')
 
         while (!result && checkCount < maxChecks) {
-            result = await this.resultRepository.findOne({
-                where: {
-                    analysis: { id: analysisId },
-                    plugin: 'python'
-                }
-            })
+            result = await this.resultsRepository.getByAnalysisIdAndPluginType(analysisId, 'python')
             await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
             checkCount++;
         }
@@ -199,7 +186,8 @@ export class ScanpyToolService {
             });
         });
         if (Object.keys(jsonContent).length === 0) {
-            throw new Error("Script failed to execute");
+            response_data.error = 'Script failed to execute'
+            return { response: response_data, analysisId: analysisId }
         }
         response_data.json = jsonContent
 

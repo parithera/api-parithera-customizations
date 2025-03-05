@@ -11,10 +11,10 @@ import { SampleService } from './samples.service';
 import { APIDocTypedPaginatedResponseDecorator } from 'src/decorators/TypedPaginatedResponse';
 import { Sample } from './samples.entity';
 import { FileInterceptor } from '@nest-lab/fastify-multer';
-import { UploadData } from 'src/codeclarity_modules/file/file.controller';
 import { File } from '@nest-lab/fastify-multer';
 import { AnalysisCreateBody } from 'src/types/entities/frontend/Analysis';
 import { APIDocNoDataResponseDecorator } from 'src/decorators/NoDataResponse';
+import { UploadData } from 'src/base_modules/file/file.controller';
 
 @Controller('org/:org_id/samples')
 export class SampleController {

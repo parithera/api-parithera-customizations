@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, Relation } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { Project } from 'src/entity/codeclarity/Project';
+import { Project } from 'src/base_modules/projects/project.entity';
 
 @Entity()
 export class Chat {

@@ -13,21 +13,18 @@ import {
 } from 'src/types/errors/types';
 import { readFile } from 'fs';
 import { join } from 'path';
-import { Result, ResultByAnalysisId } from 'src/entity/codeclarity/Result';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { OrganizationsMemberService } from 'src/codeclarity_modules/organizations/organizationMember.service';
-import { MemberRole } from 'src/entity/codeclarity/OrganizationMemberships';
-import { Project } from 'src/entity/codeclarity/Project';
+import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
+import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { ResultByAnalysisId } from 'src/codeclarity_modules/results/result.entity';
+import { ProjectsRepository } from 'src/base_modules/projects/projects.repository';
+import { AnalysisResultsRepository } from 'src/codeclarity_modules/results/results.repository';
 
 @Controller('org/:org_id/projects')
 export class GraphController {
     constructor(
-        private readonly organizationMemberService: OrganizationsMemberService,
-        @InjectRepository(Result, 'codeclarity')
-        private resultRepository: Repository<Result>,
-        @InjectRepository(Project, 'codeclarity')
-        private projectRepository: Repository<Project>
+        private readonly organizationsRepository: OrganizationsRepository,
+        private readonly projectsRepository: ProjectsRepository,
+        private readonly resultsRepository: AnalysisResultsRepository
     ) { }
 
     @ApiTags('Graphs')
@@ -41,22 +38,11 @@ export class GraphController {
         @Param('project_id') project_id: string,
         @Param('org_id') org_id: string
     ): Promise<TypedResponse<string>> {
-        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(org_id, user.userId, MemberRole.USER);
 
-        const project = await this.projectRepository.findOne({
-            where: {
-                id: project_id,
-                organizations: {
-                    id: org_id
-                }
-            },
-            relations: {
-                added_by: true
-            }
-        });
-        if (!project) {
-            throw new Error('Project not found');
-        }
+        const project = await this.projectsRepository.getProjectByIdAndOrganization(project_id, org_id,{
+            added_by: true
+        })
 
         const filePath = join('/private', project.added_by.id, project_id, 'graph.svg');
         return new Promise((resolve, reject) => {
@@ -83,22 +69,11 @@ export class GraphController {
         @Param('org_id') org_id: string,
         @Param('analysis_id') analysis_id: string
     ): Promise<TypedResponse<string>> {
-        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(org_id, user.userId, MemberRole.USER);
 
-        const project = await this.projectRepository.findOne({
-            where: {
-                id: project_id,
-                organizations: {
-                    id: org_id
-                }
-            },
-            relations: {
-                added_by: true
-            }
-        });
-        if (!project) {
-            throw new Error('Project not found');
-        }
+        const project = await this.projectsRepository.getProjectByIdAndOrganization(project_id, org_id,{
+            added_by: true
+        })
 
         const filePath = join('/private', org_id, 'projects', project_id, "data", analysis_id + '.png');
         return new Promise((resolve, reject) => {
@@ -125,21 +100,14 @@ export class GraphController {
         @Param('org_id') org_id: string,
         @Param('analysis_id') analysis_id: string
     ): Promise<TypedResponse<ResultByAnalysisId>> {
-        await this.organizationMemberService.hasRequiredRole(org_id, user.userId, MemberRole.USER);
+        await this.organizationsRepository.hasRequiredRole(org_id, user.userId, MemberRole.USER);
         const res: ResultByAnalysisId = {
             id: '',
             image: ''
         };
-        const result = await this.resultRepository.findOne({
-            where: {
-                analysis: {
-                    id: analysis_id
-                }
-            },
-            relations: {
-                analysis: true
-            }
-        });
+        const result = await this.resultsRepository.getByAnalysisId(analysis_id, {
+            analysis: true
+        })
         if (!result) {
             return {
                 data: res
