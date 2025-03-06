@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BaseToolService } from './base.service';
 import { RAGToolService } from './rag.service';
 import { ScanpyToolService } from './scanpy.service';
@@ -12,7 +12,7 @@ import { AnalysesModule } from 'src/base_modules/analyses/analyses.module';
 	imports: [
 		AnalysesModule,
 		AnalyzersModule,
-		SampleModule,
+		forwardRef(() => SampleModule),
 		ProjectsModule,
 		ResultsModule
 	],

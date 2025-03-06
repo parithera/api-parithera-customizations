@@ -2,8 +2,6 @@ import { forwardRef, Module } from '@nestjs/common';
 import { SampleController } from './samples.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Sample } from './samples.entity';
-import { ChatService } from '../chat/chat.service';
-import { Chat } from '../chat/chat.entity';
 import { AnalyzersModule } from 'src/base_modules/analyzers/analyzers.module';
 import { AnalysesModule } from 'src/base_modules/analyses/analyses.module';
 import { ResultsModule } from 'src/codeclarity_modules/results/results.module';

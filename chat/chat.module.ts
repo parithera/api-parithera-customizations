@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Chat } from './chat.entity';
@@ -15,7 +15,7 @@ import { ChatRepository } from './chat.repository';
 @Module({
 	imports: [
 		ToolsModule,
-		SampleModule,
+		forwardRef(() => SampleModule),
 		OrganizationsModule,
 		ProjectsModule,
 		ResultsModule,
