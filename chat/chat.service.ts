@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ResponseData } from 'src/enterprise_modules/chat/types';
-import { EntityNotFound } from 'src/types/error.types';
-import { Chat, Message } from './chat.entity';
+import { Chat } from './chat.entity';
 import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { join } from 'path';
 import * as fs from 'fs';
@@ -38,8 +36,6 @@ export class ChatService {
             MemberRole.USER
         );
 
-        const project = await this.projectsRepository.getProjectByIdAndOrganization(project_id, organization_id, {added_by: true})
-
         const chat = await this.chatRepository.getByProjectId(project_id)
 
         for (let i = 0; i < chat.messages.length; i++) {
@@ -56,7 +52,7 @@ export class ChatService {
                 continue;
             }
 
-            
+
             const jsonContent: object = await new Promise((resolve, reject) => {
                 const filePath = join(
                     '/private',

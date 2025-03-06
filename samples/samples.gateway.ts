@@ -13,7 +13,7 @@ import { Request, Response, ResponseType } from './types';
 import { Socket } from 'dgram';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EntityNotFound, ProjectDoesNotExist } from 'src/types/error.types';
+import { EntityNotFound } from 'src/types/error.types';
 import { Sample } from './samples.entity';
 import { Chat } from '../chat/chat.entity';
 import { ChatService } from '../chat/chat.service';
@@ -26,14 +26,29 @@ import { CombinedAuthGuard } from 'src/base_modules/auth/guards/combined.guard';
 import { AnalysisResultsRepository } from 'src/codeclarity_modules/results/results.repository';
 import { ChatRepository } from '../chat/chat.repository';
 
+/**
+ * WebSocket gateway for linking samples to a project.
+ */
 @WebSocketGateway({
     cors: {
-        origin: '*'
+        origin: '*',
     },
-    inheritAppConfig: true
+    inheritAppConfig: true,
 })
 @UseGuards(CombinedAuthGuard)
 export class LinkSamplesGateway {
+    /**
+     * Constructor.
+     *
+     * @param analyzerService Analyzers service instance
+     * @param analysisService Analyses service instance
+     * @param chatService Chat service instance
+     * @param chatRepository Chat repository instance
+     * @param organizationsRepository Organizations repository instance
+     * @param projectsRepository Projects repository instance
+     * @param resultsRepository Results repository instance
+     * @param sampleRepository Sample repository instance
+     */
     constructor(
         private readonly analyzerService: AnalyzersService,
         private readonly analysisService: AnalysesService,
@@ -45,9 +60,21 @@ export class LinkSamplesGateway {
         @InjectRepository(Sample, 'codeclarity')
         private sampleRepository: Repository<Sample>,
     ) { }
+
+    /**
+     * Server instance.
+     */
     @WebSocketServer()
     server: Server;
 
+    /**
+     * Handle link samples message.
+     *
+     * @param data Request data
+     * @param user Authenticated user instance
+     * @param client Connected socket instance
+     * @returns Response object
+     */
     @SubscribeMessage('link_samples')
     async graph(
         @MessageBody() data: Request,
@@ -58,43 +85,55 @@ export class LinkSamplesGateway {
         await this.organizationsRepository.hasRequiredRole(
             data.organizationId,
             user.userId,
-            MemberRole.USER
+            MemberRole.USER,
         );
 
         // (2) Check if the project belongs to the org
-        const project = await this.projectsRepository.getProjectByIdAndOrganization(data.projectId, data.organizationId, {
-            organizations: true,
-        })
+        const project = await this.projectsRepository.getProjectByIdAndOrganization(
+            data.projectId,
+            data.organizationId,
+            {
+                organizations: true,
+            },
+        );
 
-        const samples_to_update = []
+        const samplesToUpdate = [];
 
-        for (const sample_element of data.groups) {
+        for (const sampleElement of data.groups) {
             // (3) Check if the sample belongs to the org
             const sample = await this.sampleRepository.findOne({
                 relations: {
                     organizations: true,
-                    projects: true
+                    projects: true,
                 },
-                where: { id: sample_element.files[0], organizations: { id: data.organizationId } }
+                where: { id: sampleElement.files[0], organizations: { id: data.organizationId } },
             });
+
             if (!sample) {
-                throw new EntityNotFound()
+                throw new EntityNotFound();
             }
 
-            sample?.projects.push(project)
-            samples_to_update.push(sample)
+            sample.projects.push(project);
+            samplesToUpdate.push(sample);
         }
 
         // We retrieve the chat fo the Project
         // or create it if it doesn't exist
-        const chat: Chat = await this.chatService.createOrRetrieveChat(data.projectId, data.organizationId)
+        const chat: Chat = await this.chatService.createOrRetrieveChat(
+            data.projectId,
+            data.organizationId,
+        );
 
         const response_data = {
             error: '',
-            status: 'done'
-        }
+            status: 'done',
+        };
 
-        const analyzer = await this.analyzerService.getByName(data.organizationId, 'execute_python_script', user)
+        const analyzer = await this.analyzerService.getByName(
+            data.organizationId,
+            'execute_python_script',
+            user,
+        );
         const analysisId = await this.analysisService.create(
             data.organizationId,
             data.projectId,
@@ -106,50 +145,55 @@ export class LinkSamplesGateway {
                         user: project.added_by?.id,
                         groups: data.groups,
                         script: 'link_to_project',
-                        type: 'chat'
-                    }
+                        type: 'chat',
+                    },
                 },
                 branch: '',
             },
-            user
-        )
+            user,
+        );
 
-         let checkCount = 0;
+        let checkCount = 0;
         const maxChecks = 180; // 2 minutes (60 seconds * 2)
 
-        let result = await this.resultsRepository.getByAnalysisIdAndPluginType(analysisId, 'python')
+        let result = await this.resultsRepository.getByAnalysisIdAndPluginType(
+            analysisId,
+            'python',
+        );
 
         while (!result && checkCount < maxChecks) {
-            result = await this.resultsRepository.getByAnalysisIdAndPluginType(analysisId, 'python')
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+            result = await this.resultsRepository.getByAnalysisIdAndPluginType(
+                analysisId,
+                'python',
+            );
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second
             checkCount++;
         }
 
         if (!result) {
-            response_data.error = 'Script failed to execute'
+            response_data.error = 'Script failed to execute';
             return {
                 data: response_data,
-                type: ResponseType.ERROR
-            }
+                type: ResponseType.ERROR,
+            };
         }
 
-        const chat_to_modify = await this.chatRepository.getByProjectId(project.id)
-        chat.messages[0].text = 'Hi, how can I help you today?'
-        await this.chatRepository.updateChat(chat)
+        const chatToModify = await this.chatRepository.getByProjectId(project.id);
+        chat.messages[0].text = 'Hi, how can I help you today?';
+        await this.chatRepository.updateChat(chat);
 
         // Warn client that the script has been executed
-        response_data.status = 'script_executed'
+        response_data.status = 'script_executed';
         client.emit('chat:status', {
             data: response_data,
-            type: ResponseType.INFO
-        })
+            type: ResponseType.INFO,
+        });
+        await this.sampleRepository.save(samplesToUpdate);
 
-        await this.sampleRepository.save(samples_to_update)
-
-        response_data.status = 'done'
+        response_data.status = 'done';
         return {
             data: response_data,
-            type: ResponseType.SUCCESS
-        }
+            type: ResponseType.SUCCESS,
+        };
     }
 }

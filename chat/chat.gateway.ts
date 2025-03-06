@@ -22,14 +22,27 @@ import { OrganizationsRepository } from 'src/base_modules/organizations/organiza
 import { MemberRole } from 'src/base_modules/organizations/memberships/organization.memberships.entity';
 import { ChatRepository } from './chat.repository';
 
+/**
+ * WebSockets gateway for chat functionality
+ */
 @WebSocketGateway({
     cors: {
-        origin: '*'
+        origin: '*', // Allow connections from any origin
     },
-    inheritAppConfig: true
+    inheritAppConfig: true, // Inherit app config settings
 })
-@UseGuards(CombinedAuthGuard)
+@UseGuards(CombinedAuthGuard) // Secure the gateway with combined auth guard
 export class ChatGateway {
+    /**
+     * Constructor for chat gateway
+     *
+     * @param organizationsRepository Organizations repository instance
+     * @param chatRepository Chat repository instance
+     * @param chatService Chat service instance
+     * @param ragToolService RAG tool service instance
+     * @param scanpyToolService Scanpy tool service instance
+     * @param baseToolService Base tool service instance
+     */
     constructor(
         private readonly organizationsRepository: OrganizationsRepository,
         private readonly chatRepository: ChatRepository,
@@ -38,33 +51,41 @@ export class ChatGateway {
         private readonly scanpyToolService: ScanpyToolService,
         private readonly baseToolService: BaseToolService,
     ) { }
+
+    /**
+     * Server instance for the gateway
+     */
     @WebSocketServer()
     server: Server;
 
+    /**
+     * Handle 'chat' message subscription
+     *
+     * @param data Request data
+     * @param user Authenticated user
+     * @param client Connected socket client
+     * @returns Response to the client
+     */
     @SubscribeMessage('chat')
     async graph(
         @MessageBody() data: Request,
         @AuthUser() user: AuthenticatedUser,
         @ConnectedSocket() client: Socket,
     ): Promise<Response> {
-        await this.organizationsRepository.hasRequiredRole(
-            data.organizationId,
-            user.userId,
-            MemberRole.USER
-        );
+        // Check if user has required role in organization
+        await this.organizationsRepository.hasRequiredRole(data.organizationId, user.userId, MemberRole.USER);
 
-        // We initiate the prompts var 
+        // Initialize prompts object
         const prompts = new ChatPrompts();
 
-        // We retrieve the chat fo the Project
-        // or create it if it doesn't exist
-        const chat: Chat = await this.chatService.createOrRetrieveChat(data.projectId, data.organizationId)
+        // Retrieve or create chat for the project
+        const chat: Chat = await this.chatService.createOrRetrieveChat(data.projectId, data.organizationId);
 
-        // We ask the LLM what kind of request it is
-        const messages = this.baseToolService.forgeLLMRequest(prompts.getTypeOfRequest(), data.request, chat, false)
-        const answer = await this.baseToolService.askLLM(messages)
+        // Forge LLM request to determine the type of request
+        const messages = this.baseToolService.forgeLLMRequest(prompts.getTypeOfRequest(), data.request, chat, false);
+        const answer = await this.baseToolService.askLLM(messages);
 
-        // Prepare the object that will contain response data
+        // Prepare response object
         let response_data: ResponseData = {
             code: '',
             followup: [],
@@ -74,43 +95,45 @@ export class ChatGateway {
             agent: answer,
             status: 'agent_chosen',
             error: '',
-        }
+        };
 
-        let response_type = ResponseType.INFO
+        // Determine response type based on the answer
+        let response_type = ResponseType.INFO;
         client.emit('chat:status', {
             data: response_data,
-            type: response_type
-        })
+            type: response_type,
+        });
 
-        let analysis_id = ''
+        // Handle different types of answers (RAG, Scanpy, etc.)
+        let analysis_id = '';
         switch (answer) {
             case 'rag':
-                const rag_messages = this.baseToolService.forgeLLMRequest(prompts.getRAG(), data.request, chat, false)
-                const rag_answer = await this.baseToolService.askLLM(rag_messages)
-                response_data = this.ragToolService.parseRAGAnswer(rag_answer, response_data, client)
-                response_type = ResponseType.SUCCESS
+                const rag_messages = this.baseToolService.forgeLLMRequest(prompts.getRAG(), data.request, chat, false);
+                const rag_answer = await this.baseToolService.askLLM(rag_messages);
+                response_data = this.ragToolService.parseRAGAnswer(rag_answer, response_data, client);
+                response_type = ResponseType.SUCCESS;
                 break;
             case 'scanpy':
-                const script_response = await this.scanpyToolService.start(data, response_data, chat, user, client)
-                response_data = script_response.response
-                analysis_id = script_response.analysisId
-                response_type = ResponseType.SUCCESS
+                const script_response = await this.scanpyToolService.start(data, response_data, chat, user, client);
+                response_data = script_response.response;
+                analysis_id = script_response.analysisId;
+                response_type = ResponseType.SUCCESS;
                 break;
             default:
-                response_data.error = 'Cannot chose which agent to launch'
-                response_type = ResponseType.ERROR
+                response_data.error = 'Cannot choose which agent to launch';
+                response_type = ResponseType.ERROR;
                 break;
         }
 
         // Update chat history in DB
-        response_data.status = 'done'
-        await this.chatRepository.updateChatHistory(chat, response_data, data.request, analysis_id)
+        response_data.status = 'done';
+        await this.chatRepository.updateChatHistory(chat, response_data, data.request, analysis_id);
 
         const response: Response = {
             data: response_data,
-            type: response_type
+            type: response_type,
         };
 
-        return response
+        return response;
     }
 }
