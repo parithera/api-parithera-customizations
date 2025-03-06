@@ -7,7 +7,7 @@ import { ChatModule } from './chat/chat.module';
     imports: [
         SampleModule,
         GraphModule,
-        ChatModule
+        ChatModule,
     ],
     providers: [],
     controllers: []

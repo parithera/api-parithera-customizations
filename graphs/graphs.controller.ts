@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
 
-import { TypedResponse } from 'src/types/apiResponses';
-import { AuthenticatedUser } from 'src/types/auth/types';
+import { TypedResponse } from 'src/types/apiResponses.types';
+import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { AuthUser } from 'src/decorators/UserDecorator';
 import { ApiTags } from '@nestjs/swagger';
 import { ApiErrorDecorator } from 'src/decorators/ApiException';
@@ -10,11 +10,11 @@ import {
     InternalError,
     NotAuthenticated,
     NotAuthorized
-} from 'src/types/errors/types';
+} from 'src/types/error.types';
 import { readFile } from 'fs';
 import { join } from 'path';
 import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
-import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { MemberRole } from 'src/base_modules/organizations/memberships/organization.memberships.entity';
 import { ResultByAnalysisId } from 'src/codeclarity_modules/results/result.entity';
 import { ProjectsRepository } from 'src/base_modules/projects/projects.repository';
 import { AnalysisResultsRepository } from 'src/codeclarity_modules/results/results.repository';

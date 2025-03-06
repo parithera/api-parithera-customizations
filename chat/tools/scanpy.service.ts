@@ -1,10 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { Group, Request, ResponseData, ResponseType } from "../types";
 import { join } from "path";
-import { EntityNotFound } from "src/types/errors/types";
+import { EntityNotFound } from "src/types/error.types";
 import * as fs from 'fs';
-import { AuthenticatedUser } from "src/types/auth/types";
-import { AnalysisCreateBody } from "src/types/entities/frontend/Analysis";
+import { AuthenticatedUser } from "src/base_modules/auth/auth.types";
+import { AnalysisCreateBody } from "src/base_modules/analyses/analysis.types";
 import { Socket } from "dgram";
 import { BaseToolService } from "./base.service";
 import { ChatPrompts } from "../chat.prompts";

@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ResponseData } from 'src/enterprise_modules/chat/types';
-import { EntityNotFound } from 'src/types/errors/types';
+import { EntityNotFound } from 'src/types/error.types';
 import { Chat, Message } from './chat.entity';
-import { AuthenticatedUser } from 'src/types/auth/types';
+import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { join } from 'path';
 import * as fs from 'fs';
 import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
-import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { MemberRole } from 'src/base_modules/organizations/memberships/organization.memberships.entity';
 import { ChatRepository } from './chat.repository';
 import { ProjectsRepository } from 'src/base_modules/projects/projects.repository';
 import { AnalysisResultsRepository } from 'src/codeclarity_modules/results/results.repository';

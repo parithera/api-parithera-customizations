@@ -8,7 +8,7 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { AuthenticatedUser } from 'src/types/auth/types';
+import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { ChatService } from './chat.service';
 import { ChatPrompts } from './chat.prompts';
 import { Chat } from './chat.entity';
@@ -19,7 +19,7 @@ import { BaseToolService } from './tools/base.service';
 import { Socket } from 'dgram';
 import { CombinedAuthGuard } from 'src/base_modules/auth/guards/combined.guard';
 import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
-import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { MemberRole } from 'src/base_modules/organizations/memberships/organization.memberships.entity';
 import { ChatRepository } from './chat.repository';
 
 @WebSocketGateway({

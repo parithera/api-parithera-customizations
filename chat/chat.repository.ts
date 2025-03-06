@@ -2,7 +2,7 @@ import { Repository } from "typeorm";
 import { Chat, Message } from "./chat.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Injectable } from "@nestjs/common";
-import { EntityNotFound } from "src/types/errors/types";
+import { EntityNotFound } from "src/types/error.types";
 import { ResponseData } from "./types";
 
 @Injectable()

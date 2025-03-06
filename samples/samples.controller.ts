@@ -3,18 +3,19 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiErrorDecorator } from 'src/decorators/ApiException';
 import { APIDocCreatedResponseDecorator } from 'src/decorators/CrudResponse';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { CreatedResponse, NoDataResponse, TypedPaginatedResponse, TypedResponse } from 'src/types/apiResponses';
-import { AlreadyExists, AnalyzerDoesNotExist, AnaylzerMissingConfigAttribute, EntityNotFound, InternalError, NotAuthenticated, NotAuthorized, ProjectDoesNotExist } from 'src/types/errors/types';
+import { CreatedResponse, NoDataResponse, TypedPaginatedResponse, TypedResponse } from 'src/types/apiResponses.types';
+import { AlreadyExists, EntityNotFound, InternalError, NotAuthenticated, NotAuthorized, ProjectDoesNotExist } from 'src/types/error.types';
 import { AssociateProjectToSamplesPatchBody, SamplesImportBody } from './samples.http';
-import { AuthenticatedUser } from 'src/types/auth/types';
+import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { SampleService } from './samples.service';
 import { APIDocTypedPaginatedResponseDecorator } from 'src/decorators/TypedPaginatedResponse';
 import { Sample } from './samples.entity';
 import { FileInterceptor } from '@nest-lab/fastify-multer';
 import { File } from '@nest-lab/fastify-multer';
-import { AnalysisCreateBody } from 'src/types/entities/frontend/Analysis';
+import { AnalysisCreateBody } from 'src/base_modules/analyses/analysis.types';
 import { APIDocNoDataResponseDecorator } from 'src/decorators/NoDataResponse';
 import { UploadData } from 'src/base_modules/file/file.controller';
+import { AnalyzerDoesNotExist, AnaylzerMissingConfigAttribute } from 'src/base_modules/analyzers/analyzers.errors';
 
 @Controller('org/:org_id/samples')
 export class SampleController {

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { File } from '@nest-lab/fastify-multer';
-import { AuthenticatedUser } from 'src/types/auth/types';
+import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Sample } from './samples.entity';
@@ -9,14 +9,13 @@ import { AssociateProjectToSamplesPatchBody, SamplesImportBody } from './samples
 import { join } from 'path';
 import { mkdir, rm } from 'fs/promises';
 import { existsSync } from 'fs';
-import { TypedPaginatedData } from 'src/types/paginated/types';
+import { TypedPaginatedData } from 'src/types/pagination.types';
 import { escapeString } from 'src/utils/cleaner';
 import * as fs from 'fs';
 import * as amqp from 'amqplib';
-import { AnalysisCreateBody } from 'src/types/entities/frontend/Analysis';
-import { AnaylzerMissingConfigAttribute, EntityNotFound, NotAuthorized, RabbitMQError } from 'src/types/errors/types';
-import { AnalysisStartMessageCreate } from 'src/types/rabbitMqMessages';
-import { ChatService } from '../chat/chat.service';
+import { AnalysisCreateBody } from 'src/base_modules/analyses/analysis.types';
+import { EntityNotFound, NotAuthorized, RabbitMQError } from 'src/types/error.types';
+import { AnalysisStartMessageCreate } from 'src/types/rabbitMqMessages.types';
 import { UsersRepository } from 'src/base_modules/users/users.repository';
 import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
 import { FileRepository } from 'src/base_modules/file/file.repository';
@@ -24,13 +23,14 @@ import { AnalysesRepository } from 'src/base_modules/analyses/analyses.repositor
 import { ProjectsRepository } from 'src/base_modules/projects/projects.repository';
 import { AnalysisResultsRepository } from 'src/codeclarity_modules/results/results.repository';
 import { AnalyzersRepository } from 'src/base_modules/analyzers/analyzers.repository';
-import { OrganizationLoggerService } from 'src/base_modules/organizations/organizationLogger.service';
-import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
-import { ActionType } from 'src/base_modules/organizations/log.entity';
+import { OrganizationLoggerService } from 'src/base_modules/organizations/log/organizationLogger.service';
+import { MemberRole } from 'src/base_modules/organizations/memberships/organization.memberships.entity';
+import { ActionType } from 'src/base_modules/organizations/log/log.entity';
 import { UploadData } from 'src/base_modules/file/file.controller';
 import { Analysis, AnalysisStage, AnalysisStatus } from 'src/base_modules/analyses/analysis.entity';
 import { File as FileEntity } from 'src/base_modules/file/file.entity';
 import { ChatRepository } from '../chat/chat.repository';
+import { AnaylzerMissingConfigAttribute } from 'src/base_modules/analyzers/analyzers.errors';
 
 @Injectable()
 export class SampleService {

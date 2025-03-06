@@ -1,15 +1,15 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { ApiTags } from '@nestjs/swagger';
-import { AuthenticatedUser } from 'src/types/auth/types';
+import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { TypedResponse } from 'src/types/apiResponses';
+import { TypedResponse } from 'src/types/apiResponses.types';
 import {
     EntityNotFound,
     InternalError,
     NotAuthenticated,
     NotAuthorized
-} from 'src/types/errors/types';
+} from 'src/types/error.types';
 import { ApiErrorDecorator } from 'src/decorators/ApiException';
 import { Chat } from './chat.entity';
 

@@ -17,11 +17,11 @@ import { from, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Server, Socket } from 'socket.io';
 import { AuthUser } from 'src/decorators/UserDecorator';
-import { AuthenticatedUser } from 'src/types/auth/types';
+import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { Request, Response, ResponseType } from './types';
 import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
 import { CombinedAuthGuard } from 'src/base_modules/auth/guards/combined.guard';
-import { MemberRole } from 'src/base_modules/organizations/organization.memberships.entity';
+import { MemberRole } from 'src/base_modules/organizations/memberships/organization.memberships.entity';
 
 @WebSocketGateway({
     cors: {
