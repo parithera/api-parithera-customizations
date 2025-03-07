@@ -154,7 +154,7 @@ export class LinkSamplesGateway {
         );
 
         let checkCount = 0;
-        const maxChecks = 180; // 2 minutes (60 seconds * 2)
+        const maxChecks = 60 * 10;
 
         let result = await this.resultsRepository.getByAnalysisIdAndPluginType(
             analysisId,
