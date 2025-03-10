@@ -166,7 +166,7 @@ export class LinkSamplesGateway {
                 analysisId,
                 'python',
             );
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second
+            await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait for 10 second
             checkCount++;
         }
 
