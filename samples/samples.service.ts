@@ -423,7 +423,7 @@ export class SampleService {
                 });
             }
             fileStream.write(file.buffer);
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 fileStream.end();  // This automatically calls resolve on finish
 
                 fileStream.on('finish', resolve);
@@ -434,7 +434,7 @@ export class SampleService {
             const fileStream = fs.createWriteStream(filePath, { flags: "a+" });
 
             fileStream.write(file.buffer);
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 fileStream.end();  // This automatically calls resolve on finish
 
                 fileStream.on('finish', resolve);
@@ -489,7 +489,7 @@ export class SampleService {
                     }
                 }
 
-                await new Promise((resolve, reject) => {
+                await new Promise<void>((resolve, reject) => {
                     finalFileStream.end();
                     finalFileStream.on('finish', resolve);
                     finalFileStream.on('error', reject);
