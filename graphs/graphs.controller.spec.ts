@@ -1,0 +1,3 @@
+describe('GraphsController', () => {
+  it('empty', () => {});
+});

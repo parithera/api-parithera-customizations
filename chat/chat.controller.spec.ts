@@ -1,0 +1,3 @@
+describe('ChatController', () => {
+  it('empty', () => {});
+});

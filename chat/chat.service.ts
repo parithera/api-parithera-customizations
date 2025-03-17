@@ -102,7 +102,7 @@ export class ChatService {
             added_by: true
         })
 
-        let chat_exists = await this.chatRepository.chatExistsByProjectId(projectId)
+        const chat_exists = await this.chatRepository.chatExistsByProjectId(projectId)
 
         if (!chat_exists) {
             const createChat: Chat = new Chat();
