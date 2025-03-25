@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { File } from '@nest-lab/fastify-multer';
 import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -31,6 +30,7 @@ import { Analysis, AnalysisStage, AnalysisStatus } from 'src/base_modules/analys
 import { File as FileEntity } from 'src/base_modules/file/file.entity';
 import { ChatRepository } from '../chat/chat.repository';
 import { AnaylzerMissingConfigAttribute } from 'src/base_modules/analyzers/analyzers.errors';
+import { MulterFile } from '@webundsoehne/nest-fastify-file-upload';
 
 @Injectable()
 export class SampleService {
@@ -361,7 +361,7 @@ export class SampleService {
 
     async uploadFile(
         user: AuthenticatedUser,
-        file: File,
+        file: MulterFile,
         organization_id: string,
         sample_id: string,
         queryParams: UploadData

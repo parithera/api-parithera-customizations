@@ -10,8 +10,7 @@ import { AuthenticatedUser } from 'src/base_modules/auth/auth.types';
 import { SampleService } from './samples.service';
 import { APIDocTypedPaginatedResponseDecorator } from 'src/decorators/TypedPaginatedResponse';
 import { Sample } from './samples.entity';
-import { FileInterceptor } from '@nest-lab/fastify-multer';
-import { File } from '@nest-lab/fastify-multer';
+import { FileInterceptor, MulterFile } from '@webundsoehne/nest-fastify-file-upload';
 import { AnalysisCreateBody } from 'src/base_modules/analyses/analysis.types';
 import { APIDocNoDataResponseDecorator } from 'src/decorators/NoDataResponse';
 import { UploadData } from 'src/base_modules/file/file.controller';
@@ -171,7 +170,7 @@ export class SampleController {
         @Param('org_id') organization_id: string,
         @Param('sample_id') sample_id: string,
         @Body() queryParams: UploadData,
-        @UploadedFile() file: File
+        @UploadedFile() file: MulterFile
     ): Promise<void> {
         // https://medium.com/@hackntosh/how-to-handle-file-uploading-with-nestjs-fastify-swagger-81afb08767ce
         if (!file) {
