@@ -230,16 +230,16 @@ export class ScanpyToolService {
                     // reject(err);
                     resolve({});
                 }
-                const jsonObject = JSON.parse(data);
-                resolve(jsonObject);
+                if (data === undefined) resolve({});
+                else resolve(JSON.parse(data));
             });
         });
 
         // If the analysis results file is empty, emit an error to the client
-        if (Object.keys(jsonContent).length === 0) {
-            response_data.error = 'Script failed to execute';
-            return { response: response_data, analysisId: analysisId };
-        }
+        // if (Object.keys(jsonContent).length === 0) {
+        //     response_data.error = 'Script failed to execute';
+        //     return { response: response_data, analysisId: analysisId };
+        // }
         response_data.json = jsonContent;
 
         // Get the image content of the analysis results file

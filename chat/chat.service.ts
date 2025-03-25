@@ -64,11 +64,11 @@ export class ChatService {
                 );
                 return fs.readFile(filePath, 'utf8', (err, data) => {
                     if (err) {
-                        reject(err);
-                        // resolve('');
+                        // reject(err);
+                        resolve({});
                     }
-                    const jsonObject = JSON.parse(data);
-                    resolve(jsonObject);
+                   if (data === undefined) resolve({});
+                   else resolve(JSON.parse(data));
                 });
             });
             chat.messages[i].json = jsonContent
