@@ -168,26 +168,48 @@ export class SampleService {
         const filePath = join(scanpyFolderPath, 'out.h5');
         const fileUrl = public_sample.download;
 
-        const https = require('https');
-        const file = fs.createWriteStream(filePath);
 
-        https.get(fileUrl, function (response: any) {
-            response.pipe(file);
+        if (fileUrl.includes('gs://')) {
+            const { Storage } = require('@google-cloud/storage');
+            const storage = new Storage();
 
-            file.on('finish', () => {
-                file.close();
-                console.log('Download Completed');
+            const splited_name = fileUrl.replace('gs://', '').split('/')
+
+            const bucketName = splited_name[0];
+            const fileName = splited_name.slice(1).join('/');
+
+            try {
+                const options = {
+                    destination: filePath,
+                };
+
+                await storage.bucket(bucketName).file(fileName).download(options);
+            } catch (error) {
+                console.error('Error downloading file:', error);
+            }
+        } else {
+            const https = require('https');
+            const file = fs.createWriteStream(filePath);
+
+            https.get(fileUrl, function (response: any) {
+                response.pipe(file);
+
+                file.on('finish', () => {
+                    file.close();
+                    console.log('Download Completed');
+                });
+            }).on('error', (err: Error) => {
+                fs.unlink(filePath, (unlinkErr: NodeJS.ErrnoException | null) => {
+                    if (unlinkErr) {
+                        console.error('Failed to delete file:', unlinkErr);
+                    } else {
+                        console.log('File deleted successfully');
+                    }
+                });
+                throw err;
             });
-        }).on('error', (err: Error) => {
-            fs.unlink(filePath, (unlinkErr: NodeJS.ErrnoException | null) => {
-                if (unlinkErr) {
-                    console.error('Failed to delete file:', unlinkErr);
-                } else {
-                    console.log('File deleted successfully');
-                }
-            });
-            throw err;
-        });
+        }
+
 
         await this.organizationLoggerService.addAuditLog(
             ActionType.SampleCreate,
@@ -790,7 +812,7 @@ export class SampleService {
             throw new NotAuthorized();
         }
 
-        const organization = await this.organizationsRepository.getOrganizationById(orgId, {projects:true})
+        const organization = await this.organizationsRepository.getOrganizationById(orgId, { projects: true })
 
         // Find project in organization.projects and remove it
         const updatedProjects = organization.projects.filter(p => p.id !== id);
