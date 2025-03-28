@@ -413,7 +413,10 @@ export class SampleService {
         const added_by = await this.usersRepository.getUserById(user.userId)
 
         // Write the file to the file system
-        const folderPath = join('/private', organization_id, "samples", sample.id);
+        let folderPath = join('/private', organization_id, "samples", sample.id);
+        if (queryParams.file_name.includes('out.h5')) {
+            folderPath = join('/private', organization_id, "samples", sample.id, "scanpy");
+        }
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
         }
