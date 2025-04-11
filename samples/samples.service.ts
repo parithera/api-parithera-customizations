@@ -121,6 +121,48 @@ export class SampleService {
      * @param user The authenticated user
      * @returns the id of the created project
      */
+    async update(
+        orgId: string,
+        sampleId: string,
+        projectData: SamplesImportBody,
+        user: AuthenticatedUser
+    ): Promise<string> {
+        // (1) Check that the user is a member of the org
+        await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
+
+        const sample = await this.sampleRepository.findOneBy({id: sampleId})
+        if (!sample) {
+            throw new EntityNotFound();
+        }
+
+        sample.name = projectData.name
+        sample.description = projectData.description
+        sample.tags = projectData.tags
+
+        await this.sampleRepository.save(sample);
+
+        await this.organizationLoggerService.addAuditLog(
+            ActionType.SampleCreate,
+            `The User update sample ${projectData.name} from the organization.`,
+            orgId,
+            user.userId
+        );
+
+        return sampleId;
+    }
+
+    /**
+     * Import a source code project
+     * @throws {IntegrationNotSupported}
+     * @throws {AlreadyExists}
+     * @throws {EntityNotFound}
+     * @throws {NotAuthorized}
+     *
+     * @param orgId The id of the organization
+     * @param projectData The project data
+     * @param user The authenticated user
+     * @returns the id of the created project
+     */
     async import(
         orgId: string,
         sampleId: string,
