@@ -35,6 +35,15 @@ export class Sample {
     @Expose()
     description: string;
 
+    @Column({
+        type: String,
+        enum: ["h5", "h5ad", "fastq"],
+        default: "fastq"
+    })
+    @ApiProperty()
+    @Expose()
+    type: string;
+
     @Column('jsonb')
     @ApiProperty()
     @Expose()
