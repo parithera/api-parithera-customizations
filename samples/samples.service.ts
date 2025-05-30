@@ -81,6 +81,7 @@ export class SampleService {
         sample.name = projectData.name
         sample.description = projectData.description
         sample.tags = projectData.tags
+        sample.type = projectData.type
         sample.status = ""
         sample.condition = ""
         sample.projects = []

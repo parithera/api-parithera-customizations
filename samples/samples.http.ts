@@ -13,6 +13,10 @@ export class SamplesImportBody {
     @ApiProperty()
     @IsOptional()
     tags: string[];
+
+    @ApiProperty()
+    @IsOptional()
+    type: string;
 }
 
 export class AssociateProjectToSamplesPatchBody {
