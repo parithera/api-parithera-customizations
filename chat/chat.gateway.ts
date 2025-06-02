@@ -108,17 +108,17 @@ export class ChatGateway {
         let analysis_id = '';
         switch (answer) {
             case 'rag':
-                const rag_messages = this.baseToolService.forgeLLMRequest(prompts.getRAG(), data.request, chat, false);
+                { const rag_messages = this.baseToolService.forgeLLMRequest(prompts.getRAG(), data.request, chat, false);
                 const rag_answer = await this.baseToolService.askLLM(rag_messages);
                 response_data = this.ragToolService.parseRAGAnswer(rag_answer, response_data, client);
                 response_type = ResponseType.SUCCESS;
-                break;
+                break; }
             case 'scanpy':
-                const script_response = await this.scanpyToolService.start(data, response_data, chat, user, client);
+                { const script_response = await this.scanpyToolService.start(data, response_data, chat, user, client);
                 response_data = script_response.response;
                 analysis_id = script_response.analysisId;
                 response_type = ResponseType.SUCCESS;
-                break;
+                break; }
             default:
                 response_data.error = 'Cannot choose which agent to launch';
                 response_type = ResponseType.ERROR;

@@ -216,6 +216,11 @@ export class ScanpyToolService {
             return { response: response_data, analysisId: analysisId };
         }
 
+        if (result.result.analysis_info.status == "failure") {
+            response_data.error = result.result.analysis_info.errors[0].public_error.description;
+            return { response: response_data, analysisId: analysisId };
+        }
+
         // Emit a status update to the client indicating that the script has been executed
         response_data.status = 'script_executed';
         client.emit('chat:status', {
@@ -224,7 +229,7 @@ export class ScanpyToolService {
         });
 
         // Get the JSON content of the analysis results file
-        const jsonContent: object = await new Promise((resolve, reject) => {
+        const jsonContent: object = await new Promise((resolve) => {
             return fs.readFile(filePath + '.json', 'utf8', (err, data) => {
                 if (err) {
                     // reject(err);
