@@ -13,7 +13,7 @@ import { escapeString } from 'src/utils/cleaner';
 import * as fs from 'fs';
 import * as amqp from 'amqplib';
 import { AnalysisCreateBody } from 'src/base_modules/analyses/analysis.types';
-import { EntityNotFound, NotAuthorized, RabbitMQError } from 'src/types/error.types';
+import { EntityNotFound, InternalError, NotAuthorized, RabbitMQError } from 'src/types/error.types';
 import { AnalysisStartMessageCreate } from 'src/types/rabbitMqMessages.types';
 import { UsersRepository } from 'src/base_modules/users/users.repository';
 import { OrganizationsRepository } from 'src/base_modules/organizations/organizations.repository';
@@ -134,7 +134,7 @@ export class SampleService {
         // (1) Check that the user is a member of the org
         await this.organizationsRepository.hasRequiredRole(orgId, user.userId, MemberRole.USER);
 
-        const sample = await this.sampleRepository.findOneBy({id: sampleId})
+        const sample = await this.sampleRepository.findOneBy({ id: sampleId })
         if (!sample) {
             throw new EntityNotFound();
         }
@@ -424,6 +424,30 @@ export class SampleService {
         };
     }
 
+
+
+    // Helper function to write a file chunk
+    async writeFileChunk(filePath: string, buffer: Buffer): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            const fileStream = fs.createWriteStream(filePath, { flags: "w" });
+            fileStream.on('error', (err) => reject(err));
+            fileStream.write(buffer);
+            fileStream.end();
+            fileStream.on('finish', resolve);
+        });
+    }
+
+    // Helper function to append to a file
+    async appendToFile(filePath: string, content: Buffer): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            const fileStream = fs.createWriteStream(filePath, { flags: "a+" });
+            fileStream.on('error', (err) => reject(err));
+            fileStream.write(content);
+            fileStream.end();
+            fileStream.on('finish', resolve);
+        });
+    }
+
     async uploadFile(
         user: AuthenticatedUser,
         file: MulterFile,
@@ -431,150 +455,95 @@ export class SampleService {
         sample_id: string,
         queryParams: UploadData
     ): Promise<void> {
-        await this.organizationsRepository.hasRequiredRole(
-            organization_id,
-            user.userId,
-            MemberRole.USER
-        );
-        // retrieve files from project
-        const sample = await this.sampleRepository.findOne({
-            where: {
-                id: sample_id,
-                organizations: {
-                    id: organization_id
+        try {
+            await this.organizationsRepository.hasRequiredRole(
+                organization_id,
+                user.userId,
+                MemberRole.USER
+            );
+
+            const sample = await this.sampleRepository.findOne({
+                where: {
+                    id: sample_id,
+                    organizations: { id: organization_id }
                 }
-            },
-            // relations: {
-            //     added_by: true
-            // }
-        });
-        if (!sample) {
-            throw new Error('Project not found');
-        }
-
-        // Retrieve the user who added the file
-        const added_by = await this.usersRepository.getUserById(user.userId)
-
-        // Write the file to the file system
-        let folderPath = join('/private', organization_id, "samples", sample.id);
-        if (queryParams.file_name.includes('out.h5')) {
-            folderPath = join('/private', organization_id, "samples", sample.id, "scanpy");
-        }
-        await fs.promises.mkdir(folderPath, { recursive: true });
-
-        const escapedFileName = escapeString(queryParams.file_name);
-        const baseName = escapedFileName.split(".", 1)[0];
-        // Pad the id with zeros until it is 5 characters long
-        const paddedId = queryParams.id.toString().padStart(5, '0');
-        const fileNameWithSuffix = `${baseName}.part${paddedId}`;
-
-        if (queryParams.last == "false") {
-            const filePath = join(folderPath, fileNameWithSuffix); // Replace with the desired file path
-            const fileStream = fs.createWriteStream(filePath, { flags: "a+" });
-
-            // Handle errors during writing or opening the file
-            fileStream.on('error', (err) => {
-                console.error('File stream error:', err);
             });
+            if (!sample) throw new Error('Project not found');
 
-            if (file.buffer) {
-                await crypto.subtle.digest('SHA-256', file.buffer).then((hash) => {
-                    const hashArray = Array.from(new Uint8Array(hash));
-                    const stringHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                    if (queryParams.hash != stringHash) {
-                        console.error("NOT THE SAME HASH!");
-                        console.error('Hash:', stringHash);
-                        console.error('Original Hash:', queryParams.hash)
+            const added_by = await this.usersRepository.getUserById(user.userId);
+
+            let folderPath = join('/private', organization_id, "samples", sample.id);
+            if (queryParams.file_name.includes('out.h5')) {
+                folderPath = join('/private', organization_id, "samples", sample.id, "scanpy");
+            }
+            await fs.promises.mkdir(folderPath, { recursive: true });
+
+            const escapedFileName = escapeString(queryParams.file_name);
+            const baseName = escapedFileName.split(".", 1)[0];
+            const paddedId = queryParams.id.toString().padStart(5, '0');
+            const fileNameWithSuffix = `${baseName}.part${paddedId}`;
+
+            const filePath = join(folderPath, fileNameWithSuffix);
+
+            // Write the file chunk
+            await this.writeFileChunk(filePath, file.buffer);
+
+            if (queryParams.last === "true") {
+                // Get all files in folderPath and sort them alphabetically by name
+                const files = (await fs.promises.readdir(folderPath)).sort();
+                const validFiles = [];
+                for (const f of files) {
+                    if (/\.part\d{5}$/.test(f)) {
+                        validFiles.push(f);
                     }
-                });
-            }
-            fileStream.write(file.buffer);
-            await new Promise<void>((resolve, reject) => {
-                fileStream.end();  // This automatically calls resolve on finish
-
-                fileStream.on('finish', resolve);
-                fileStream.on('error', reject);
-            });
-        } else {
-            const filePath = join(folderPath, fileNameWithSuffix); // Replace with the desired file path
-            const fileStream = fs.createWriteStream(filePath, { flags: "a+" });
-
-            fileStream.write(file.buffer);
-            await new Promise<void>((resolve, reject) => {
-                fileStream.end();  // This automatically calls resolve on finish
-
-                fileStream.on('finish', resolve);
-                fileStream.on('error', reject);
-            });
-
-            // Get all files in folderPath and sort them alphabetically by name
-            const files = (await fs.promises.readdir(folderPath)).sort();
-            // Remove any files that don't match the expected pattern (e.g., .part01)
-            const validFiles = [];
-            for (const file of files) {
-                if (/\.part\d{5}$/.test(file)) {  // Check if the file does not have a .partXX extension
-                    validFiles.push(file);  // Add to list but do not delete from disk
                 }
-            }
 
-            let index = 0;
-            for (const file of validFiles) {
-                const match = file.match(/(\d+)$/);
-                if (match) {
-                    const currentIdx = parseInt(match[1], 10);
-                    if (currentIdx !== index) {
-                        console.log(`Missing chunk at index ${index} in file: ${file}`);
+                // Check for missing chunks (optional)
+                let index = 0;
+                for (const f of validFiles) {
+                    const match = f.match(/(\d+)$/);
+                    if (match) {
+                        const currentIdx = parseInt(match[1], 10);
+                        if (currentIdx !== index) {
+                            console.log(`Missing chunk at index ${index} in file: ${f}`);
+                        }
+                        index++;
                     }
-                    index++;
-                }
-            }
-
-
-            // Concatenate their content to finalFileStream
-            for (let i = 0; i < validFiles.length; i++) {
-                const finalFilePath = join(folderPath, escapedFileName); // Replace with the desired file path
-                const finalFileStream = fs.createWriteStream(finalFilePath, { flags: "a+" });
-                // Handle errors during writing or opening the file
-                finalFileStream.on('error', (err) => {
-                    console.error('File stream error:', err);
-                });
-
-                try {
-                    const fileContent = await fs.promises.readFile(join(folderPath, validFiles[i]));
-                    finalFileStream.write(fileContent);
-                } catch {
-                    console.error(`Error reading file ${validFiles[i]}`);
                 }
 
-                // Remove the temp file after its content has been written to the final file
-                if (validFiles[i] !== escapedFileName) {
+                // Concatenate files
+                const finalFilePath = join(folderPath, escapedFileName);
+                for (let i = 0; i < validFiles.length; i++) {
                     try {
-                        await fs.promises.unlink(join(folderPath, validFiles[i]));
-                    } catch {
-                        console.error(`Error deleting temp file ${validFiles[i]}`);
+                        const fileContent = await fs.promises.readFile(join(folderPath, validFiles[i]));
+                        await this.appendToFile(finalFilePath, fileContent);
+                    } catch (err) {
+                        throw new Error(`Failed to read or append file ${validFiles[i]}: ${err.message}`);
+                    }
+                    if (validFiles[i] !== escapedFileName) {
+                        try {
+                            await fs.promises.unlink(join(folderPath, validFiles[i]));
+                        } catch (err) {
+                            console.error(`Error deleting temp file ${validFiles[i]}: ${err.message}`);
+                            // Optionally: throw new Error(`Failed to delete temp file ${validFiles[i]}: ${err.message}`);
+                        }
                     }
                 }
-
-                await new Promise<void>((resolve, reject) => {
-                    finalFileStream.end();
-                    finalFileStream.on('finish', resolve);
-                    finalFileStream.on('error', reject);
-                });
             }
 
-        }
-
-        if (queryParams.chunk == "false" || queryParams.last == "true") {
-            // Save the file to the database
-            const file_entity = new FileEntity();
-            file_entity.added_by = added_by;
-            file_entity.added_on = new Date();
-            file_entity.type = queryParams.type;
-            file_entity.name = escapedFileName;
-
-            await this.fileRepository.saveFile(file_entity);
+            if (queryParams.chunk === "false" || queryParams.last === "true") {
+                const file_entity = new FileEntity();
+                file_entity.added_by = added_by;
+                file_entity.added_on = new Date();
+                file_entity.type = queryParams.type;
+                file_entity.name = escapedFileName;
+                await this.fileRepository.saveFile(file_entity);
+            }
+        } catch (err) {
+            throw new InternalError('500', `Failed to upload file: ${err.message}`);
         }
     }
+
 
     /**
      * Create/start an analysis
