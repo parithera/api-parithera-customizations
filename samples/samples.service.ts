@@ -31,6 +31,9 @@ import { File as FileEntity } from 'src/base_modules/file/file.entity';
 import { ChatRepository } from '../chat/chat.repository';
 import { AnaylzerMissingConfigAttribute } from 'src/base_modules/analyzers/analyzers.errors';
 import { MulterFile } from '@webundsoehne/nest-fastify-file-upload';
+import https from 'https';
+import pako from 'pako';
+import { Storage } from '@google-cloud/storage';
 
 @Injectable()
 export class SampleService {
@@ -213,7 +216,6 @@ export class SampleService {
 
 
         if (fileUrl.includes('gs://')) {
-            const { Storage } = require('@google-cloud/storage');
             const storage = new Storage();
 
             const splited_name = fileUrl.replace('gs://', '').split('/')
@@ -231,7 +233,6 @@ export class SampleService {
                 console.error('Error downloading file:', error);
             }
         } else {
-            const https = require('https');
             const file = fs.createWriteStream(filePath);
 
             https.get(fileUrl, function (response: any) {
@@ -341,7 +342,6 @@ export class SampleService {
             throw new EntityNotFound('The MultiQC report file does not exist.');
         }
 
-        const pako = require('pako');
         const fileContent = fs.readFileSync(filePath);
         const compressedFileContent = pako.gzip(fileContent);
         return Buffer.from(compressedFileContent).toString('base64');
@@ -460,9 +460,7 @@ export class SampleService {
         if (queryParams.file_name.includes('out.h5')) {
             folderPath = join('/private', organization_id, "samples", sample.id, "scanpy");
         }
-        if (!fs.existsSync(folderPath)) {
-            fs.mkdirSync(folderPath, { recursive: true });
-        }
+        await fs.promises.mkdir(folderPath, { recursive: true });
 
         const escapedFileName = escapeString(queryParams.file_name);
         const baseName = escapedFileName.split(".", 1)[0];
@@ -510,7 +508,7 @@ export class SampleService {
             });
 
             // Get all files in folderPath and sort them alphabetically by name
-            const files = fs.readdirSync(folderPath).sort();
+            const files = (await fs.promises.readdir(folderPath)).sort();
             // Remove any files that don't match the expected pattern (e.g., .part01)
             const validFiles = [];
             for (const file of files) {
@@ -542,7 +540,7 @@ export class SampleService {
                 });
 
                 try {
-                    const fileContent = fs.readFileSync(join(folderPath, validFiles[i]));
+                    const fileContent = await fs.promises.readFile(join(folderPath, validFiles[i]));
                     finalFileStream.write(fileContent);
                 } catch {
                     console.error(`Error reading file ${validFiles[i]}`);
@@ -551,7 +549,7 @@ export class SampleService {
                 // Remove the temp file after its content has been written to the final file
                 if (validFiles[i] !== escapedFileName) {
                     try {
-                        fs.unlinkSync(join(folderPath, validFiles[i]));
+                        await fs.promises.unlink(join(folderPath, validFiles[i]));
                     } catch {
                         console.error(`Error deleting temp file ${validFiles[i]}`);
                     }
@@ -808,7 +806,7 @@ export class SampleService {
 
         // Remove project folder
         const filePath = join('/private', orgId, "samples", id);
-        if (existsSync(filePath)) {
+        if (fs.existsSync(filePath)) {
             await rm(filePath, { recursive: true, force: true });
         }
 
